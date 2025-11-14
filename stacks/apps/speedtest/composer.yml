@@ -1,0 +1,43 @@
+networks:
+  traefik_proxy:
+    external: true
+
+services:
+  openspeedtest:
+    image: openspeedtest/latest
+    container_name: openspeedtest
+    restart: unless-stopped
+    networks:
+      - traefik_proxy
+    environment:
+      PUID: "${PUID:-99}"
+      PGID: "${PGID:-100}"
+      UMASK: "${UMASK:-002}"
+      TZ: "${TZ:-America/Los_Angeles}"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefik_proxy"
+
+      # Router
+      - "traefik.http.routers.speedtest.rule=Host(`speedtest.stephandkyle.us`)"
+      - "traefik.http.routers.speedtest.entrypoints=websecure"
+      - "traefik.http.routers.speedtest.tls.certresolver=le-dns"
+
+      # Middleware — rate limiting
+      - "traefik.http.middlewares.speedtest-rl.ratelimit.average=5"
+      - "traefik.http.middlewares.speedtest-rl.ratelimit.burst=10"
+      - "traefik.http.routers.speedtest.middlewares=speedtest-rl"
+
+      # Service
+      - "traefik.http.services.speedtest.loadbalancer.server.port=3000"
+
+      # Unraid UI
+      - "net.unraid.docker.webui=https://speedtest.stephandkyle.us"
+      - "net.unraid.docker.icon=https://raw.githubusercontent.com/openspeedtest/iocage-plugin-OpenSpeedTest-Server/master/openspeedtest.png"
+
+      # Homepage discovery
+      - "homepage.group=Infra"
+      - "homepage.name=Speed Test"
+      - "homepage.icon=si-speedtest"
+      - "homepage.href=https://speedtest.stephandkyle.us"
+      - "homepage.description=OpenSpeedTest server"

@@ -1,0 +1,78 @@
+networks:
+  traefik_proxy:
+    external: true
+  paperless_net:
+    internal: true
+
+services:
+  paperless:
+    image: ghcr.io/paperless-ngx/paperless-ngx:latest
+    container_name: paperless
+    restart: unless-stopped
+    depends_on:
+      - paperless-redis
+    networks:
+      - traefik_proxy
+      - paperless_net
+
+    environment:
+      # UID/GID that should own files on disk
+      USERMAP_UID: "${PUID:-99}"
+      USERMAP_GID: "${PGID:-100}"
+      UMASK: "${UMASK:-002}"
+
+      # Timezone + base URL
+      PAPERLESS_TIME_ZONE: "${TZ:-America/Los_Angeles}"
+      PAPERLESS_URL: "https://paperless.stephandkyle.us"
+
+      # Redis (used even when DB is SQLite)
+      PAPERLESS_REDIS: "redis://paperless-redis:6379"
+
+      # Optional, but nice defaults
+      PAPERLESS_OCR_LANGUAGE: "eng"
+      # PAPERLESS_SECRET_KEY: "set-me-in-.env-for-real"
+
+    volumes:
+      - /mnt/user/appdata/paperless:/usr/src/paperless/data
+      - /mnt/user/public/paperless/media:/usr/src/paperless/media
+      - /mnt/user/public/paperless/export:/usr/src/paperless/export
+      - /mnt/user/public/paperless/consume/:/usr/src/paperless/consume
+
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8000/health/ || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefik_proxy"
+
+      # Router
+      - "traefik.http.routers.paperless.rule=Host(`paperless.stephandkyle.us`)"
+      - "traefik.http.routers.paperless.entrypoints=websecure"
+      - "traefik.http.routers.paperless.tls.certresolver=le-dns"
+      - "traefik.http.routers.paperless.middlewares=ip-allowlist@docker"
+
+      # Service
+      - "traefik.http.services.paperless.loadbalancer.server.port=8000"
+
+      # Homepage discovery
+      - "homepage.group=Docs"
+      - "homepage.name=Paperless"
+      - "homepage.icon=si-paperlessngx"
+      - "homepage.href=https://paperless.stephandkyle.us"
+      - "homepage.description=Paperless-ngx document archive"
+
+      # Unraid UI
+      - "net.unraid.docker.webui=https://paperless.stephandkyle.us"
+      - "net.unraid.docker.icon=https://raw.githubusercontent.com/linuxserver/docker-templates/master/linuxserver.io/img/paperless-ng.png"
+
+  paperless-redis:
+    image: redis:7-alpine
+    container_name: paperless-redis
+    restart: unless-stopped
+    networks:
+      - paperless_net
+    command: ["redis-server", "--save", "60", "1", "--loglevel", "warning"]

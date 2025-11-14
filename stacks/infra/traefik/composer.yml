@@ -1,0 +1,107 @@
+version: "3.9"
+
+networks:
+  traefik_proxy:
+    external: true      # for internal container-to-container routing
+  eth0:
+    external: true      # macvlan/ipvlan network with direct LAN IPs
+
+services:
+  traefik:
+    image: traefik:v3
+    container_name: traefik
+    restart: unless-stopped
+    networks:
+      traefik_proxy:
+        aliases:
+          - traefik
+      eth0:
+        ipv4_address: 192.168.1.12   # <-- Traefik's dedicated LAN IP
+
+    ports:
+      # Bind ports specifically to Traefik’s LAN IP (not the host)
+      - "192.168.1.12:80:80"
+      - "192.168.1.12:443:443"
+
+    environment:
+      CF_DNS_API_TOKEN: ${CF_DNS_API_TOKEN}
+      TZ: "${TZ:-America/Los_Angeles}"
+
+    command:
+      # ────────────────────────────────────────────────────────────
+      # Providers
+      # ────────────────────────────────────────────────────────────
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=false
+      - --providers.docker.network=traefik_proxy
+
+      # ────────────────────────────────────────────────────────────
+      # EntryPoints
+      # ────────────────────────────────────────────────────────────
+      - --entrypoints.web.address=:80
+      - --entrypoints.websecure.address=:443
+
+      # ────────────────────────────────────────────────────────────
+      # HTTP → HTTPS redirect
+      # ────────────────────────────────────────────────────────────
+      - --entrypoints.web.http.redirections.entrypoint.to=websecure
+      - --entrypoints.web.http.redirections.entrypoint.scheme=https
+
+      # ────────────────────────────────────────────────────────────
+      # ACME: DNS-01 with Cloudflare
+      # ────────────────────────────────────────────────────────────
+      - --certificatesresolvers.le-dns.acme.email=hello@stephandkyle.us
+      - --certificatesresolvers.le-dns.acme.storage=/letsencrypt/acme.json
+      - --certificatesresolvers.le-dns.acme.dnschallenge.provider=cloudflare
+      # Speed up validation on Cloudflare
+      - --certificatesresolvers.le-dns.acme.dnschallenge.delaybeforecheck=0
+
+      # ────────────────────────────────────────────────────────────
+      # Dashboard (internal only — protected by this router)
+      # ────────────────────────────────────────────────────────────
+      - --api.dashboard=true
+      - --api.insecure=false
+
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /mnt/user/appdata/traefik:/letsencrypt
+
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefik_proxy"
+
+      # Dashboard router
+      - "traefik.http.routers.traefik.rule=Host(`traefik.stephandkyle.us`)"
+      - "traefik.http.routers.traefik.entrypoints=websecure"
+      - "traefik.http.routers.traefik.tls.certresolver=le-dns"
+      - "traefik.http.routers.traefik.service=api@internal"
+      - "traefik.http.routers.traefik.middlewares=ip-allowlist@docker"
+
+      # Disable Docker-generated service to eliminate the port error
+      - "traefik.http.services.traefik.loadbalancer.server.port=0"
+
+      # Setup an IP Whitelist for internal services
+      - "traefik.http.middlewares.ip-allowlist.ipallowlist.sourceRange=192.168.1.0/24,192.168.3.0/24,127.0.0.1/32"
+
+      # Catch-all for public entrypoint — blocks everything except defined hosts
+      - "traefik.http.routers.blackhole.rule=HostRegexp(`{any:.+}`)"
+      - "traefik.http.routers.blackhole.entrypoints=websecure"
+      - "traefik.http.routers.blackhole.priority=-10"
+      - "traefik.http.routers.blackhole.tls=true"
+      - "traefik.http.routers.blackhole.service=noop@internal"
+  
+  # Optional: tiny test endpoint
+  whoami:
+    image: traefik/whoami
+    container_name: whoami
+    restart: unless-stopped
+    networks:
+      traefik_proxy:
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.who.rule=Host(`whoami.stephandkyle.us`)"
+      - "traefik.http.routers.who.entrypoints=websecure"
+      - "traefik.http.routers.who.tls.certresolver=le-dns"
+
+
+  

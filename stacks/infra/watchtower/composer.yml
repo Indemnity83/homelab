@@ -1,0 +1,19 @@
+services:
+  watchtower:
+    image: containrrr/watchtower:latest
+    container_name: watchtower
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    environment:
+      TZ: "${TZ:-America/Los_Angeles}"
+    command:
+      - --label-enable              # Only act on containers explicitly labeled enable=true
+      - --cleanup                   # Clean old images after successful update
+      - --rolling-restart           # Restart containers one-by-one to avoid big outages
+      - --schedule=0 17 3 * * *     # Run on a cron schedule (local time per TZ), here: 3:17 AM daily
+      
+      # Good defaults
+      - --include-stopped=false
+      - --revive-stopped=false
+      - --no-startup-message

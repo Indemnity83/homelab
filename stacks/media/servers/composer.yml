@@ -1,0 +1,91 @@
+volumes:
+  media:
+    external: true
+
+networks:
+  traefik_proxy:
+    external: true
+
+services:
+  plex:
+    image: plexinc/pms-docker:latest
+    container_name: plex
+    restart: unless-stopped
+
+    # Host mode = best Plex experience (LAN discovery, DLNA, etc.)
+    network_mode: host
+
+    # Use Nvidia runtime (Unraid Nvidia plugin should already have this installed)
+    runtime: nvidia
+
+    environment:
+      # --- Identities / permissions ---
+      PLEX_UID: "${PUID:-99}"
+      PLEX_GID: "${PGID:-100}"
+      UMASK: "${UMASK:-002}"
+      TZ: "${TZ:-America/Los_Angeles}"
+
+      # --- Nvidia HW transcoding ---
+      NVIDIA_VISIBLE_DEVICES: "GPU-9876b693-fbf5-e082-da77-cf08109c3e3d"
+      NVIDIA_DRIVER_CAPABILITIES: "compute,video,utility"
+
+    volumes:
+      # Plex config / metadata
+      - /mnt/user/appdata/plex:/config
+
+      # Your main media volume (matches the rest of your stacks)
+      - media:/data
+
+      # Transcode dir – /tmp = in-RAM on Unraid if you want that
+      # You can change to /mnt/user/appdata/plex/transcode if you prefer disk
+      - /tmp:/transcode
+
+    labels:
+      # Unraid UI (Dockerman) integration
+      - "net.unraid.docker.webui=http://calcifer.local:32400/web"
+      - "net.unraid.docker.icon=https://raw.githubusercontent.com/plexinc/pms-docker/master/plex-logo.png"
+
+      # Homepage discovery
+      - "homepage.group=Media"
+      - "homepage.name=Plex"
+      - "homepage.icon=plex"
+      - "homepage.href=http://calcifer.local:32400/web"
+      - "homepage.description=Media server (Plex)"
+
+  audiobookshelf:
+    image: ghcr.io/advplyr/audiobookshelf:latest
+    container_name: audiobookshelf
+    restart: unless-stopped
+    networks:
+      - traefik_proxy
+    environment:
+      PUID: "${PUID:-99}"
+      PGID: "${PGID:-100}"
+      UMASK: "${UMASK:-002}"
+      TZ: "${TZ:-America/Los_Angeles}"
+    volumes:
+      - /mnt/user/appdata/audiobookshelf:/config
+      - media:/media
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefik_proxy"
+  
+      # Router
+      - "traefik.http.routers.audiobookshelf.rule=Host(`audiobooks.stephandkyle.us`)"
+      - "traefik.http.routers.audiobookshelf.entrypoints=websecure"
+      - "traefik.http.routers.audiobookshelf.tls.certresolver=le-dns"
+      - "traefik.http.routers.audiobookshelf.middlewares=ip-allowlist@docker"
+  
+      # Service
+      - "traefik.http.services.audiobookshelf.loadbalancer.server.port=80"
+  
+      # Homepage discovery
+      - "homepage.group=Media"
+      - "homepage.name=Audiobooks"
+      - "homepage.icon=mdi-headphones"
+      - "homepage.href=https://audiobooks.stephandkyle.us"
+      - "homepage.description=Audiobook & podcast library"
+  
+      # Unraid UI
+      - "net.unraid.docker.webui=https://audiobooks.stephandkyle.us"
+      - "net.unraid.docker.icon=https://raw.githubusercontent.com/advplyr/audiobookshelf/master/resources/icon.png"

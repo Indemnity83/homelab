@@ -1,0 +1,38 @@
+services:
+  mailgun:
+    image: crazymax/msmtpd:latest
+    container_name: mail-relay
+    restart: unless-stopped
+    networks:
+      - traefik_proxy
+    environment:
+      TZ: "${TZ:-America/Los_Angeles}"
+
+      # Upstream SMTP (Mailgun)
+      SMTP_HOST: "smtp.mailgun.org"
+      SMTP_PORT: "587"
+
+      # TLS / STARTTLS
+      SMTP_TLS: "on"
+      SMTP_STARTTLS: "on"
+      SMTP_TLS_CHECKCERT: "on"
+
+      # Auth
+      SMTP_AUTH: "on"
+      SMTP_USER: "${MAILGUN_SMTP_USER}"
+      SMTP_PASSWORD: "${MAILGUN_SMTP_PASSWORD}"
+
+      # Identity / from
+      SMTP_DOMAIN: "stephandkyle.us"
+      SMTP_FROM: "noreply@stephandkyle.us"
+
+      # Header / from behavior (sane defaults)
+      SMTP_ALLOW_FROM_OVERRIDE: "on"
+      SMTP_SET_FROM_HEADER: "auto"
+      SMTP_SET_DATE_HEADER: "auto"
+      SMTP_REMOVE_BCC_HEADERS: "on"
+      SMTP_UNDISCLOSED_RECIPIENTS: "off"
+
+      # DSN (delivery status notifications) – usually off is fine
+      SMTP_DSN_NOTIFY: "off"
+      SMTP_DSN_RETURN: "off"

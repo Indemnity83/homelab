@@ -1,0 +1,52 @@
+
+
+networks:
+  traefik_proxy:
+    external: true
+
+services:
+  webtrees:
+    image: ghcr.io/nathanvaughn/webtrees:latest
+    container_name: webtrees
+    restart: unless-stopped
+    networks:
+      - traefik_proxy
+    environment:
+      PUID: "${PUID:-99}"
+      PGID: "${PGID:-100}"
+      UMASK: "${UMASK:-002}"
+      TZ: "${TZ:-America/Los_Angeles}"
+    volumes:
+      - /mnt/user/appdata/webtrees:/var/www/webtrees/data
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefik_proxy"
+
+      # Router
+      - "traefik.http.routers.webtrees.rule=Host(`tracystree.com`)"
+      - "traefik.http.routers.webtrees.entrypoints=websecure"
+      - "traefik.http.routers.webtrees.tls.certresolver=le-dns"
+
+      # Service
+      - "traefik.http.services.webtrees.loadbalancer.server.port=80"
+
+      # Router — www redirect
+      - "traefik.http.routers.webtrees-www.rule=Host(`www.tracystree.com`)"
+      - "traefik.http.routers.webtrees-www.entrypoints=websecure"
+      - "traefik.http.routers.webtrees-www.tls.certresolver=le-dns"
+      - "traefik.http.routers.webtrees-www.middlewares=wt-redirect-www-to-apex"
+      - "traefik.http.routers.webtrees-www.service=noop@internal"
+      - "traefik.http.middlewares.wt-redirect-www-to-apex.redirectregex.regex=^https?://www\\.tracystree\\.com(.*)"
+      - "traefik.http.middlewares.wt-redirect-www-to-apex.redirectregex.replacement=https://tracystree.com$${1}"
+      - "traefik.http.middlewares.wt-redirect-www-to-apex.redirectregex.permanent=true"
+
+      # Homepage discovery
+      - "homepage.group=Web"
+      - "homepage.name=Webtrees"
+      - "homepage.icon=si-git-branch"
+      - "homepage.href=https://tracystree.com"
+      - "homepage.description=Family tree (webtrees)"
+
+      # Unraid UI
+      - "net.unraid.docker.webui=https://tracystree.com"
+      - "net.unraid.docker.icon=https://raw.githubusercontent.com/fisharebest/webtrees/refs/heads/main/resources/img/webtrees-icon.png"

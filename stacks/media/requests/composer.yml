@@ -1,0 +1,53 @@
+networks:
+  traefik_proxy:
+    external: true
+
+services:
+  ombi:
+    image: lscr.io/linuxserver/ombi:latest
+    container_name: ombi
+    restart: unless-stopped
+    networks:
+      - traefik_proxy
+
+    environment:
+      PUID: "${PUID:-99}"
+      PGID: "${PGID:-100}"
+      UMASK: "${UMASK:-002}"
+      TZ: "${TZ:-America/Los_Angeles}"
+
+    volumes:
+      - /mnt/user/appdata/ombi:/config
+
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z localhost 3579"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefik_proxy"
+
+      # Router
+      - "traefik.http.routers.ombi.rule=Host(`requests.stephandkyle.us`)"
+      - "traefik.http.routers.ombi.entrypoints=websecure"
+      - "traefik.http.routers.ombi.tls.certresolver=le-dns"
+
+      # Service
+      - "traefik.http.services.ombi.loadbalancer.server.port=3579"
+
+      # Homepage discovery
+      - "homepage.group=Media"
+      - "homepage.name=Requests"
+      - "homepage.icon=ombi"
+      - "homepage.href=https://requests.stephandkyle.us"
+      - "homepage.description=Media requests via Ombi"
+
+      # Watchtower Updates
+      - "com.centurylinklabs.watchtower.enable=true"
+
+      # Unraid UI
+      - "net.unraid.docker.webui=https://requests.stephandkyle.us"
+      - "net.unraid.docker.icon=https://raw.githubusercontent.com/linuxserver/docker-templates/master/linuxserver.io/img/ombi-logo.png"

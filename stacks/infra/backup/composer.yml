@@ -1,0 +1,74 @@
+networks:
+  traefik_proxy:
+    external: true
+
+services:
+  s3backup:
+    image: joch/s3backup:latest
+    container_name: s3backup
+    restart: unless-stopped
+    volumes:
+      - /mnt/user/media/photos:/data/photos:ro
+      - /mnt/user/public/kyle:/data/kyle:ro
+      - /mnt/user/public/steph:/data/steph:ro
+      - /mnt/user/public/records:/data/records:ro
+      - /mnt/user/public/backups:/data/backups:ro
+    environment:
+      PUID: "${PUID:-99}"
+      PGID: "${PGID:-100}"
+      UMASK: "${UMASK:-002}"
+      TZ: "${TZ:-America/Los_Angeles}"
+
+      S3PATH: "s3://backup.stephandkyle.us/"
+      ACCESS_KEY: "${ACCESS_KEY}"
+      SECRET_KEY: "${SECRET_KEY}"
+      CRON_SCHEDULE: "0 * * * *"
+
+  duplicacy:
+    image: saspus/duplicacy-web:latest
+    container_name: duplicacy
+    restart: unless-stopped
+    networks:
+      - traefik_proxy
+    environment:
+      PUID: "${PUID:-99}"
+      PGID: "${PGID:-100}"
+      UMASK: "${UMASK:-002}"
+      TZ: "${TZ:-America/Los_Angeles}"
+    volumes:
+      - /mnt/user/appdata/duplicacy/config:/config
+      - /mnt/user/appdata/duplicacy/cache:/cache
+      - /mnt/user:/mnt/user:ro
+    healthcheck:
+      test: ["CMD-SHELL", "nc -zw2 127.0.0.1 3875 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefik_proxy"
+
+      # Router
+      - "traefik.http.routers.duplicacy.rule=Host(`backup.stephandkyle.us`)"
+      - "traefik.http.routers.duplicacy.entrypoints=websecure"
+      - "traefik.http.routers.duplicacy.tls.certresolver=le-dns"
+
+      # Service
+      - "traefik.http.services.duplicacy.loadbalancer.server.port=3875"
+
+      # Middleware
+      - "traefik.http.routers.duplicacy.middlewares=ip-allowlist@docker"
+
+      # Homepage discovery
+      - "homepage.group=Infra"
+      - "homepage.name=Duplicacy"
+      - "homepage.icon=cloud"
+      - "homepage.href=https://backup.stephandkyle.us"
+      - "homepage.description=Off-site backups (S3/B2/Wasabi/local)"
+
+      # Watchtower Updates
+      - "com.centurylinklabs.watchtower.enable=true"
+
+      # Unraid UI
+      - "net.unraid.docker.webui=https://backup.stephandkyle.us"
