@@ -2,17 +2,17 @@
 
 Lightweight internal SMTP relay for the homelab.  
 
-All apps send email to `mail` on the Docker network; the relay forwards mail out via Mailgun.
+All apps send email to the `mailgun` service on the Docker network; the relay forwards mail out via Mailgun using authenticated TLS.
 
 ---
 
 ## What this stack does
 
 - Runs a small SMTP relay using [`crazymax/msmtpd`](https://github.com/crazy-max/docker-msmtpd).
-- Listens on port **2500** inside the `traefik_proxy` Docker network.
+- Listens on port **2500** (default for msmtpd) inside the `traefik_proxy` Docker network.
 - Authenticates and sends mail to Mailgun’s SMTP endpoint (`smtp.mailgun.org:587`) using TLS and SMTP auth.
 - Centralizes outbound email config so individual apps only need:
-  - `SMTP_HOST=mail`
+  - `SMTP_HOST=mailgun`
   - `SMTP_PORT=2500`
 - Keeps the relay **internal-only** (no Traefik / public exposure).
 
@@ -36,13 +36,13 @@ There are **no Traefik routers** or public hostnames for `mailgun`.
 
 ### Internal
 
-| Endpoint           | Purpose                                   | Network         |
-| ------------------ | ----------------------------------------- | --------------- |
-| `smtp://mail:2500` | SMTP relay for app notifications & alerts | `traefik_proxy` |
+| Endpoint              | Purpose                                   | Network         |
+| --------------------- | ----------------------------------------- | --------------- |
+| `smtp://mailgun:2500` | SMTP relay for app notifications & alerts | `traefik_proxy` |
 
 Configure apps (Radarr, Sonarr, Paperless, Mealie, etc.) to use:
 
-- Host: `mail`
+- Host: `mailgun`
 - Port: `2500`
 - Security/Auth: **disabled** (they’re just talking to the internal relay)
 

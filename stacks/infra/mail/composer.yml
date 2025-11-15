@@ -1,3 +1,7 @@
+networks:
+  traefik_proxy:
+    external: true
+
 services:
   mailgun:
     image: crazymax/msmtpd:latest
