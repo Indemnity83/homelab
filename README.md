@@ -18,7 +18,7 @@ Foundational services required for the homelab to operate: networking, routing, 
 
 | Stack / Directory       | Description                                    |
 |-------------------------|------------------------------------------------|
-| infra-ai.               | Open-WebUI (AI front-end) & Claud Proxy        |
+| infra-ai                | Open-WebUI (AI front-end) & Claud Proxy        |
 | infra-traefik           | Reverse proxy + Cloudflare DNS ACME           |
 | infra-portainer         | Portainer agent deployment                     |
 | infra-watchtower        | Automated container updates                    |
