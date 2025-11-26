@@ -18,6 +18,7 @@ Foundational services required for the homelab to operate: networking, routing, 
 
 | Stack / Directory       | Description                                    |
 |-------------------------|------------------------------------------------|
+| infra-ai.               | Open-WebUI (AI front-end) & Claud Proxy        |
 | infra-traefik           | Reverse proxy + Cloudflare DNS ACME           |
 | infra-portainer         | Portainer agent deployment                     |
 | infra-watchtower        | Automated container updates                    |
@@ -33,8 +34,9 @@ Everything related to Plex, downloading, organizing, and managing media.
 |-------------------------|------------------------------------------------|
 | media-vpn-dl            | Gluetun VPN + qBittorrent + SABnzbd           |
 | media-automation        | Sonarr/Radarr/Lidarr/Readarr/Bazarr/Prowlarr/Recyclarr |
-| media-servers           | Plex Media Server                              |
+| media-servers           | Plex & Audiobookshelf Media Server             |
 | media-requests          | Ombi request portal                            |
+| media-photos            | Immich server and services                            |
 
 ---
 
@@ -43,17 +45,19 @@ Apps that serve a single purpose and do not belong to another ecosystem.
 
 | Stack / Directory       | Description                                    |
 |-------------------------|------------------------------------------------|
-| app-ai-chat             | Open-WebUI (AI front-end)                      |
 | app-webtrees            | Webtrees genealogy site                        |
 | app-mealie              | Mealie recipe manager                          |
 | app-speedtest           | Speedtest front-end                            |
+| app-homepage            | Homepage Dashboard (built mostly by these stacks) |
 
 ---
 
 ### 🏠 iot-* — Home Automation (Future Namespace)  
 Reserved for ESPHome, MQTT, Zigbee2MQTT, and other embedded/automation services if they're ever migrated to Portainer.
 
-_(No stacks in this namespace yet.)_
+| Stack / Directory       | Description                                    |
+|-------------------------|------------------------------------------------|
+| iot-esphome             | ESPHome device manager/builder                  |
 
 ---
 
