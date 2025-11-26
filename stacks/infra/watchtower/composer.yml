@@ -1,19 +1,51 @@
+networks:
+  traefik_proxy:
+    external: true
+    
 services:
   watchtower:
-    image: containrrr/watchtower:latest
+    image: nickfedor/watchtower:latest
     container_name: watchtower
     restart: unless-stopped
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-    environment:
-      TZ: "${TZ:-America/Los_Angeles}"
-    command:
-      - --label-enable              # Only act on containers explicitly labeled enable=true
-      - --cleanup                   # Clean old images after successful update
-      - --rolling-restart           # Restart containers one-by-one to avoid big outages
-      - --schedule=0 17 3 * * *     # Run on a cron schedule (local time per TZ), here: 3:17 AM daily
+    
+    networks:
+      - traefik_proxy
       
-      # Good defaults
-      - --include-stopped=false
-      - --revive-stopped=false
-      - --no-startup-message
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      
+    environment:
+      - TZ=${TZ:-America/Los_Angeles}
+      - WATCHTOWER_INCLUDE_STOPPED=true
+      - WATCHTOWER_CLEANUP=true
+      - WATCHTOWER_REMOVE_VOLUMES=true
+      - WATCHTOWER_SCHEDULE=0 0/15 * * *
+      - WATCHTOWER_INCLUDE_RESTARTING=true
+      - WATCHTOWER_ROLLING_RESTART=false
+      - WATCHTOWER_HTTP_API_UPDATE=true
+      - WATCHTOWER_HTTP_API_PERIODIC_POLLS=true
+      - WATCHTOWER_HTTP_API_METRICS=true
+      - WATCHTOWER_HTTP_API_TOKEN=${WATCHTOWER_API_TOKEN}
+      - WATCHTOWER_DEBUG=true
+      - WATCHTOWER_NOTIFICATIONS=email
+      - WATCHTOWER_NOTIFICATION_EMAIL_FROM=noreply@stephandkyle.us
+      - WATCHTOWER_NOTIFICATION_EMAIL_TO=kklaus@indemnity83.com
+      - WATCHTOWER_NOTIFICATION_EMAIL_SERVER=mailgun
+      - WATCHTOWER_NOTIFICATION_EMAIL_SERVER_PORT=2500
+      - WATCHTOWER_NOTIFICATION_EMAIL_SERVER_USER=
+      - WATCHTOWER_NOTIFICATION_EMAIL_SERVER_PASSWORD=
+  
+    labels:
+      # Homepage discovery
+      - homepage.group=Inf Stack 2
+      - homepage.name=Watchtower - Calcifer
+      - homepage.icon=sh-watchtower
+
+      # Homepage widget
+      - homepage.widget.type=watchtower
+      - homepage.widget.fields=["containers_scanned", "containers_updated", "containers_failed"]
+      - homepage.widget.url=http://watchtower:8080
+      - homepage.widget.key=${WATCHTOWER_API_TOKEN}
+      
+      # Unraid UI
+      - net.unraid.docker.icon=https://cdn.jsdelivr.net/gh/selfhst/icons/png/watchtower.png

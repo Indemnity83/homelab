@@ -1,0 +1,52 @@
+networks:
+  traefik_proxy:
+    external: true
+
+services:
+  esphome:
+    image: ghcr.io/esphome/esphome:latest
+    container_name: esphome
+    restart: unless-stopped
+    networks:
+      - traefik_proxy
+
+    environment:
+      PUID: "${PUID:-99}"
+      PGID: "${PGID:-100}"
+      UMASK: "${UMASK:-002}"
+      TZ: "${TZ:-America/Los_Angeles}"
+
+    volumes:
+      - /mnt/user/appdata/esphome:/config
+      - /etc/localtime:/etc/localtime:ro
+
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=traefik_proxy
+
+      # Service
+      - traefik.http.services.esphome.loadbalancer.server.port=6052
+
+      # Router
+      - traefik.http.routers.esphome.rule=Host(`esphome.stephandkyle.us`)
+      - traefik.http.routers.esphome.entrypoints=websecure
+      - traefik.http.routers.esphome.tls.certresolver=le-dns
+      - traefik.http.routers.esphome.middlewares=ip-allowlist@docker
+
+      # Homepage discovery
+      - homepage.group=Home Services
+      - homepage.name=ESP Home
+      - homepage.icon=sh-esphome
+      - homepage.href=https://esphome.stephandkyle.us
+
+      # Homepage widget
+      - homepage.widget.type=esphome
+      - homepage.widget.url=http://esphome:6052
+      - homepage.widget.fields=["total", "online", "offline_alt"]
+
+      # Watchtower Updates
+      - com.centurylinklabs.watchtower.enable=true
+
+      # Unraid UI
+      - net.unraid.docker.webui=https://esphome.stephandkyle.us
+      - net.unraid.docker.icon=https://cdn.jsdelivr.net/gh/selfhst/icons/png/esphome.png

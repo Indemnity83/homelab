@@ -1,216 +1,137 @@
 networks:
   traefik_proxy:
-    external: true
-  authentik_net:
-    internal: true
+    external: true      # for internal container-to-container routing
+  br0:
+    external: true      # macvlan/ipvlan network with direct LAN IPs
 
 services:
-  authentik-postgres:
-    image: postgres:16-alpine
-    container_name: authentik-postgres
-    restart: unless-stopped
-    user: "${PUID:-99}:${PGID:-100}"
-    networks:
-      - authentik_net
-    environment:
-      POSTGRES_USER: "${AUTHENTIK_DB_USER:-authentik}"
-      POSTGRES_PASSWORD: "${AUTHENTIK_DB_PASSWORD}"
-      POSTGRES_DB: "${AUTHENTIK_DB_NAME:-authentik}"
-    volumes:
-      - /mnt/user/appdata/authentik/postgres:/var/lib/postgresql/data
-    healthcheck:
-      interval: 30s
-      retries: 5
-      start_period: 20s
-      test:
-        - CMD-SHELL
-        - pg_isready -d $${POSTGRES_DB} -U $${POSTGRES_USER}
-      timeout: 5s
-    labels:
-      # Watchtower Updates
-      - com.centurylinklabs.watchtower.enable=true
-      
-      # Unraid UI
-      - net.unraid.docker.icon=https://cdn.jsdelivr.net/gh/selfhst/icons/png/postgresql.png
-
-  authentik-redis:
-    image: redis:7-alpine
-    container_name: authentik-redis
-    user: "${PUID:-99}:${PGID:-100}"
+  traefik:
+    image: traefik:v3
+    container_name: traefik
     restart: unless-stopped
     networks:
-      - authentik_net
+      traefik_proxy:
+        aliases:
+          - traefik
+      br0:
+        ipv4_address: 192.168.1.12   # <-- Traefik's dedicated LAN IP
+
+    ports:
+      # Bind ports specifically to Traefik’s LAN IP (not the Unraid host)
+      - "192.168.1.12:80:80"
+      - "192.168.1.12:443:443"
+
     environment:
-      PUID: "${PUID:-99}"
-      PGID: "${PGID:-100}"
-      UMASK: "${UMASK:-002}"
-    command: ["redis-server", "--save", "60", "1", "--loglevel", "warning"]
-    volumes:
-      - /mnt/user/appdata/authentik/redis:/data
-    healthcheck:
-      test: ["CMD-SHELL", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 10s
-      retries: 3
-      start_period: 5s
-    labels:
-      # Watchtower Updates
-      - com.centurylinklabs.watchtower.enable=true
-      
-      # Unraid UI
-      - net.unraid.docker.icon=https://cdn.jsdelivr.net/gh/selfhst/icons/png/redis.png
+      - CF_DNS_API_TOKEN=${CF_DNS_API_TOKEN}
+      - TZ=${TZ:-America/Los_Angeles}
 
-  authentik-server:
-    image: ${AUTHENTIK_IMAGE:-ghcr.io/goauthentik/server}:${AUTHENTIK_TAG:-2025.10.1}
-    container_name: authentik-server
-    restart: unless-stopped
-    user: "${PUID:-99}:${PGID:-100}"
-    command: server
-    depends_on:
-      authentik-postgres:
-        condition: service_healthy
-      authentik-redis:
-        condition: service_healthy
-    networks:
-      - traefik_proxy
-      - authentik_net
-    environment:
-      # --- Core settings ---
-      AUTHENTIK_SECRET_KEY: "${AUTHENTIK_SECRET_KEY}"
+    command:
+      # ────────────────────────────────────────────────────────────
+      # Providers
+      # ────────────────────────────────────────────────────────────
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=false
+      - --providers.docker.network=traefik_proxy
 
-      # --- Database (Postgres) ---
-      AUTHENTIK_POSTGRESQL__HOST: "authentik-postgres"
-      AUTHENTIK_POSTGRESQL__USER: "${AUTHENTIK_DB_USER:-authentik}"
-      AUTHENTIK_POSTGRESQL__PASSWORD: "${AUTHENTIK_DB_PASSWORD}"
-      AUTHENTIK_POSTGRESQL__NAME: "${AUTHENTIK_DB_NAME:-authentik}"
+      # ────────────────────────────────────────────────────────────
+      # EntryPoints
+      # ────────────────────────────────────────────────────────────
+      - --entrypoints.web.address=:80
+      - --entrypoints.websecure.address=:443
 
-      # --- Email ---
-      AUTHENTIK_EMAIL__HOST: "mailgun"
-      AUTHENTIK_EMAIL__PORT: "2500"
-      AUTHENTIK_EMAIL__USE_TLS: "false"
-      AUTHENTIK_EMAIL__USE_SSL: "false"
-      AUTHENTIK_EMAIL__USERNAME: ""
-      AUTHENTIK_EMAIL__PASSWORD: ""
-      AUTHENTIK_EMAIL__FROM: "noreply@stephandkyle.us"
-      AUTHENTIK_EMAIL__FROM_NAME: "Calcifer"
+      # ────────────────────────────────────────────────────────────
+      # HTTP → HTTPS redirect
+      # ────────────────────────────────────────────────────────────
+      - --entrypoints.web.http.redirections.entrypoint.to=websecure
+      - --entrypoints.web.http.redirections.entrypoint.scheme=https
 
-      # --- Redis ---
-      AUTHENTIK_REDIS__HOST: "authentik-redis"
-      AUTHENTIK_REDIS__PORT: "6379"
+      # ────────────────────────────────────────────────────────────
+      # ACME: DNS-01 with Cloudflare
+      # ────────────────────────────────────────────────────────────
+      - --certificatesresolvers.le-dns.acme.email=hello@stephandkyle.us
+      - --certificatesresolvers.le-dns.acme.storage=/letsencrypt/acme.json
+      - --certificatesresolvers.le-dns.acme.dnschallenge.provider=cloudflare
+      # Speed up validation on Cloudflare
+      - --certificatesresolvers.le-dns.acme.dnschallenge.delaybeforecheck=0
+
+      # ────────────────────────────────────────────────────────────
+      # Dashboard (internal only — protected by this router)
+      # ────────────────────────────────────────────────────────────
+      - --api.dashboard=true
+      - --api.insecure=false
 
     volumes:
-      - /mnt/user/appdata/authentik/media:/media
-      - /mnt/user/appdata/authentik/custom-templates:/templates
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /mnt/user/appdata/traefik:/letsencrypt
 
     labels:
       - traefik.enable=true
       - traefik.docker.network=traefik_proxy
 
-      # Service
-      - traefik.http.services.authentik.loadbalancer.server.port=9000
+      # Service (dummy service to prevent warning)
+      - traefik.http.services.traefik.loadbalancer.server.port=0
 
-      # Router
-      - traefik.http.routers.authentik.rule=Host(`auth.stephandkyle.us`)
-      - traefik.http.routers.authentik.entrypoints=websecure
-      - traefik.http.routers.authentik.tls.certresolver=le-dns
+      # Dashboard router
+      - traefik.http.routers.traefik.rule=Host(`traefik.stephandkyle.us`)
+      - traefik.http.routers.traefik.entrypoints=websecure
+      - traefik.http.routers.traefik.tls.certresolver=le-dns
+      - traefik.http.routers.traefik.service=api@internal
+      - traefik.http.routers.traefik.middlewares=ip-allowlist@docker
+
+      # IP Whitelist Middleware
+      - traefik.http.middlewares.ip-allowlist.ipallowlist.sourceRange=192.168.1.0/24,192.168.3.0/24,127.0.0.1/32
+
+      # Catch-all for public entrypoint — swallows everything except defined hosts
+      - traefik.http.routers.blackhole.rule=HostRegexp(`{any:.+}`)
+      - traefik.http.routers.blackhole.entrypoints=websecure
+      - traefik.http.routers.blackhole.priority=-10
+      - traefik.http.routers.blackhole.tls=true
+      - traefik.http.routers.blackhole.service=noop@internal
 
       # Homepage discovery
-      - homepage.group=Inf Stack 1
-      - homepage.name=Authentik
-      - homepage.icon=sh-authentik
-      - homepage.href=https://auth.stephandkyle.us
+      - homepage.group=Network
+      - homepage.name=Traefik
+      - homepage.icon=sh-traefik
+      - homepage.href=https://traefik.stephandkyle.us
 
       # Homepage widget
-      - homepage.widget.type=authentik
-      - homepage.widget.url=http://authentik-server:9000
-      - homepage.widget.key=${AUTHENTIK_API_KEY}
+      - homepage.widget.type=traefik
+      - homepage.widget.url=https://traefik.stephandkyle.us
 
       # Watchtower Updates
       - com.centurylinklabs.watchtower.enable=true
 
       # Unraid UI
-      - net.unraid.docker.webui=https://auth.stephandkyle.us
-      - net.unraid.docker.icon=https://cdn.jsdelivr.net/gh/selfhst/icons/png/authentik.png
+      - net.unraid.docker.webui=https://traefik.stephandkyle.us
+      - net.unraid.docker.icon=https://cdn.jsdelivr.net/gh/selfhst/icons/png/traefik.png
 
-  authentik-worker:
-    image: ${AUTHENTIK_IMAGE:-ghcr.io/goauthentik/server}:${AUTHENTIK_TAG:-2025.10.1}
-    container_name: authentik-worker
+  # Optional: tiny test endpoint
+  whoami:
+    image: traefik/whoami
+    container_name: whoami
     restart: unless-stopped
-    command: worker
-    depends_on:
-      authentik-postgres:
-        condition: service_healthy
-      authentik-redis:
-        condition: service_healthy
     networks:
-      - authentik_net
-    environment:
-      # --- Core settings ---
-      AUTHENTIK_SECRET_KEY: "${AUTHENTIK_SECRET_KEY}"
-
-      # --- Database (Postgres) ---
-      AUTHENTIK_POSTGRESQL__HOST: "authentik-postgres"
-      AUTHENTIK_POSTGRESQL__USER: "${AUTHENTIK_DB_USER:-authentik}"
-      AUTHENTIK_POSTGRESQL__PASSWORD: "${AUTHENTIK_DB_PASSWORD}"
-      AUTHENTIK_POSTGRESQL__NAME: "${AUTHENTIK_DB_NAME:-authentik}"
-
-      # --- Redis ---
-      AUTHENTIK_REDIS__HOST: "authentik-redis"
-      AUTHENTIK_REDIS__PORT: "6379"
-
-      # --- Email ---
-      AUTHENTIK_EMAIL__HOST: "mailgun"
-      AUTHENTIK_EMAIL__PORT: "2500"
-      AUTHENTIK_EMAIL__USE_TLS: "false"
-      AUTHENTIK_EMAIL__USE_SSL: "false"
-      AUTHENTIK_EMAIL__USERNAME: ""
-      AUTHENTIK_EMAIL__PASSWORD: ""
-      AUTHENTIK_EMAIL__FROM: "noreply@stephandkyle.us"
-      AUTHENTIK_EMAIL__FROM_NAME: "Calcifer"
-
-    user: "${PUID:-99}:${PGID:-100}"
-
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-      - /mnt/user/appdata/authentik/media:/media
-      - /mnt/user/appdata/authentik/custom-templates:/templates
-      - /mnt/user/appdata/authentik/certs:/certs
-
-    labels:
-      # Unraid UI
-      - net.unraid.docker.icon=https://cdn.jsdelivr.net/gh/selfhst/icons/png/authentik.png
-
-  authentik-outpost:
-    image: ghcr.io/goauthentik/proxy:${AUTHENTIK_TAG:-2025.10.1}
-    container_name: authentik-outpost
-    restart: unless-stopped
-    depends_on:
-      authentik-server:
-        condition: service_healthy
-    networks:
-      - traefik_proxy
-      - authentik_net
-    environment:
-      AUTHENTIK_HOST_BROWSER: "https://auth.stephandkyle.us"
-      AUTHENTIK_HOST: "http://authentik-server:9000"
-      AUTHENTIK_TOKEN: "${AUTHENTIK_OUTPOST_TOKEN}"
-
+      traefik_proxy:
     labels:
       - traefik.enable=true
       - traefik.docker.network=traefik_proxy
 
-      # Route just for the outpost's own endpoints
-      - traefik.http.routers.authentik-outpost.rule=Host(`auth.stephandkyle.us`) && PathPrefix(`/outpost.goauthentik.io/`)
-      - traefik.http.routers.authentik-outpost.entrypoints=web
-      - traefik.http.services.authentik-outpost.loadbalancer.server.port=9000
+      # Router
+      - traefik.http.routers.who.rule=Host(`whoami.stephandkyle.us`)
+      - traefik.http.routers.who.entrypoints=websecure
+      - traefik.http.routers.who.tls.certresolver=le-dns
 
-      # Forward-auth middleware definition
-      - traefik.http.middlewares.authentik.forwardauth.address=http://authentik-outpost:9000/outpost.goauthentik.io/auth/traefik
-      - traefik.http.middlewares.authentik.forwardauth.trustForwardHeader=true
-      - traefik.http.middlewares.authentik.forwardauth.authResponseHeaders=X-authentik-username,X-authentik-groups,X-authentik-email,X-authentik-name,X-authentik-uid,X-authentik-jwt,X-authentik-meta-jwks,X-authentik-meta-outpost,X-authentik-meta-provider,X-authentik-meta-app,X-authentik-meta-version
+      # Homepage discovery
+      - homepage.group=Quick Links
+      - homepage.name=Whoami
+      - homepage.description=Diagnostic endpoint for verifying Traefik routing & headers
+      - homepage.icon=sh-traefik
+      - homepage.href=https://whoami.stephandkyle.us
 
       # Watchtower Updates
       - com.centurylinklabs.watchtower.enable=true
 
       # Unraid UI
-      - net.unraid.docker.icon=https://cdn.jsdelivr.net/gh/selfhst/icons/png/authentik.png
+      - net.unraid.docker.webui=https://whoami.stephandkyle.us
+      - net.unraid.docker.icon=https://cdn.jsdelivr.net/gh/selfhst/icons/png/traefik.png
+  

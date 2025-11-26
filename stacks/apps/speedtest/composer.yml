@@ -27,6 +27,16 @@ services:
       - traefik.http.routers.speedtest.tls.certresolver=le-dns
       - traefik.http.routers.speedtest.middlewares=authentik@docker
 
+      # Homepage discovery
+      - homepage.group=Quick Links
+      - homepage.name=Open Speedtest
+      - homepage.description=Self-hosted internet speed test
+      - homepage.icon=sh-openspeedtest
+      - homepage.href=https://speedtest.stephandkyle.us
+
+      # Watchtower Updates
+      - com.centurylinklabs.watchtower.enable=true
+
       # Unraid UI
       - net.unraid.docker.webui=https://speedtest.stephandkyle.us
       - net.unraid.docker.icon=https://cdn.jsdelivr.net/gh/selfhst/icons/png/openspeedtest.png

@@ -41,5 +41,8 @@ services:
       SMTP_DSN_NOTIFY: "off"
       SMTP_DSN_RETURN: "off"
     labels:
+      # Watchtower Updates
+      - com.centurylinklabs.watchtower.enable=true
+      
       # Unraid UI
       - net.unraid.docker.icon=https://cdn.jsdelivr.net/gh/selfhst/icons/png/mailgun.png

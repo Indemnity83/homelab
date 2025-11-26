@@ -44,28 +44,33 @@ services:
 
     volumes:
       - /mnt/user/appdata/mealie:/app/data
-    labels:
-      - "traefik.enable=true"
-      - "traefik.docker.network=traefik_proxy"
-
-      # Router
-      - "traefik.http.routers.mealie.rule=Host(`recipes.stephandkyle.us`)"
-      - "traefik.http.routers.mealie.entrypoints=websecure"
-      - "traefik.http.routers.mealie.tls.certresolver=le-dns"
+    labels:  
+      - traefik.enable=true
+      - traefik.docker.network=traefik_proxy
 
       # Service
-      - "traefik.http.services.mealie.loadbalancer.server.port=9000"
+      - traefik.http.services.mealie.loadbalancer.server.port=9000
 
-      # Middleware
-      # - "traefik.http.routers.mealie.middlewares=rate-limit@docker"
+      # Router
+      - traefik.http.routers.mealie.rule=Host(`recipes.stephandkyle.us`)
+      - traefik.http.routers.mealie.entrypoints=websecure
+      - traefik.http.routers.mealie.tls.certresolver=le-dns
 
       # Homepage discovery
-      - "homepage.group=Home"
-      - "homepage.name=Mealie"
-      - "homepage.icon=mealie"
-      - "homepage.href=https://recipes.stephandkyle.us"
-      - "homepage.description=Recipe manager & meal planner"
+      - homepage.group=Home Services
+      - homepage.name=Recipes
+      - homepage.icon=sh-mealie
+      - homepage.href=https://recipes.stephandkyle.us
+
+      # Homepage widget
+      - homepage.widget.type=mealie
+      - homepage.widget.url=http://mealie:9000
+      - homepage.widget.key=${MEALIE_API_KEY}
+      - homepage.widget.version=2
+
+      # Watchtower Updates
+      - com.centurylinklabs.watchtower.enable=true
 
       # Unraid UI
-      - "net.unraid.docker.webui=https://recipes.stephandkyle.us"
-      - "net.unraid.docker.icon=https://logo.svgcdn.com/simple-icons/mealie-dark.png"
+      - net.unraid.docker.webui=https://recipes.stephandkyle.us
+      - net.unraid.docker.icon=https://logo.svgcdn.com/simple-icons/mealie-dark.png

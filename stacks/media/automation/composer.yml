@@ -191,7 +191,7 @@ services:
       - traefik.http.routers.readarr.middlewares=ip-allowlist@docker
 
       # Homepage discovery
-      - homepage.group=Arr Stack 1
+      - homepage.group=Arr Stack 2
       - homepage.name=Readarr
       - homepage.icon=sh-readarr
       - homepage.href=https://readarr.stephandkyle.us
@@ -374,7 +374,7 @@ services:
       - /mnt/user/appdata/recyclarr:/config
     labels:
       # Watchtower Updates
-      - "com.centurylinklabs.watchtower.enable=true"
+      - com.centurylinklabs.watchtower.enable=true
 
       # Unraid UI
       - net.unraid.docker.icon=https://cdn.jsdelivr.net/gh/selfhst/icons/png/recyclarr.png

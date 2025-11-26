@@ -48,6 +48,16 @@ services:
       - traefik.http.routers.duplicacy.tls.certresolver=le-dns
       - traefik.http.routers.duplicacy.middlewares=ip-allowlist@docker
 
+      # Homepage discovery
+      - homepage.group=Inf Stack 1
+      - homepage.name=Backups
+      - homepage.icon=sh-duplicacy
+      - homepage.href=https://backup.stephandkyle.us
+
+
+      # Watchtower Updates
+      - com.centurylinklabs.watchtower.enable=true
+
       # Unraid UI
       - net.unraid.docker.webui=https://backup.stephandkyle.us
       - net.unraid.docker.icon=https://cdn.jsdelivr.net/gh/selfhst/icons/png/duplicacy.png
