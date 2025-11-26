@@ -1,5 +1,3 @@
-version: "3.9"
-
 networks:
   traefik_proxy:
     external: true      # for internal container-to-container routing
@@ -19,13 +17,13 @@ services:
         ipv4_address: 192.168.1.12   # <-- Traefik's dedicated LAN IP
 
     ports:
-      # Bind ports specifically to Traefik’s LAN IP (not the host)
+      # Bind ports specifically to Traefik’s LAN IP (not the Unraid host)
       - "192.168.1.12:80:80"
       - "192.168.1.12:443:443"
 
     environment:
-      CF_DNS_API_TOKEN: ${CF_DNS_API_TOKEN}
-      TZ: "${TZ:-America/Los_Angeles}"
+      - CF_DNS_API_TOKEN=${CF_DNS_API_TOKEN}
+      - TZ=${TZ:-America/Los_Angeles}
 
     command:
       # ────────────────────────────────────────────────────────────
@@ -67,29 +65,33 @@ services:
       - /mnt/user/appdata/traefik:/letsencrypt
 
     labels:
-      - "traefik.enable=true"
-      - "traefik.docker.network=traefik_proxy"
+      - traefik.enable=true
+      - traefik.docker.network=traefik_proxy
+
+      # Service (dummy service to prevent warning)
+      - traefik.http.services.traefik.loadbalancer.server.port=0
 
       # Dashboard router
-      - "traefik.http.routers.traefik.rule=Host(`traefik.stephandkyle.us`)"
-      - "traefik.http.routers.traefik.entrypoints=websecure"
-      - "traefik.http.routers.traefik.tls.certresolver=le-dns"
-      - "traefik.http.routers.traefik.service=api@internal"
-      - "traefik.http.routers.traefik.middlewares=ip-allowlist@docker"
+      - traefik.http.routers.traefik.rule=Host(`traefik.stephandkyle.us`)
+      - traefik.http.routers.traefik.entrypoints=websecure
+      - traefik.http.routers.traefik.tls.certresolver=le-dns
+      - traefik.http.routers.traefik.service=api@internal
+      - traefik.http.routers.traefik.middlewares=ip-allowlist@docker
 
-      # Disable Docker-generated service to eliminate the port error
-      - "traefik.http.services.traefik.loadbalancer.server.port=0"
+      # IP Whitelist Middleware
+      - traefik.http.middlewares.ip-allowlist.ipallowlist.sourceRange=192.168.1.0/24,192.168.3.0/24,127.0.0.1/32
 
-      # Setup an IP Whitelist for internal services
-      - "traefik.http.middlewares.ip-allowlist.ipallowlist.sourceRange=192.168.1.0/24,192.168.3.0/24,127.0.0.1/32"
+      # Catch-all for public entrypoint — swallows everything except defined hosts
+      - traefik.http.routers.blackhole.rule=HostRegexp(`{any:.+}`)
+      - traefik.http.routers.blackhole.entrypoints=websecure
+      - traefik.http.routers.blackhole.priority=-10
+      - traefik.http.routers.blackhole.tls=true
+      - traefik.http.routers.blackhole.service=noop@internal
 
-      # Catch-all for public entrypoint — blocks everything except defined hosts
-      - "traefik.http.routers.blackhole.rule=HostRegexp(`{any:.+}`)"
-      - "traefik.http.routers.blackhole.entrypoints=websecure"
-      - "traefik.http.routers.blackhole.priority=-10"
-      - "traefik.http.routers.blackhole.tls=true"
-      - "traefik.http.routers.blackhole.service=noop@internal"
-  
+      # Unraid UI
+      - net.unraid.docker.webui=https://traefik.stephandkyle.us
+      - net.unraid.docker.icon=https://cdn.jsdelivr.net/gh/selfhst/icons/png/traefik.png
+
   # Optional: tiny test endpoint
   whoami:
     image: traefik/whoami
@@ -98,10 +100,15 @@ services:
     networks:
       traefik_proxy:
     labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.who.rule=Host(`whoami.stephandkyle.us`)"
-      - "traefik.http.routers.who.entrypoints=websecure"
-      - "traefik.http.routers.who.tls.certresolver=le-dns"
+      - traefik.enable=true
+      - traefik.docker.network=traefik_proxy
 
+      # Router
+      - traefik.http.routers.who.rule=Host(`whoami.stephandkyle.us`)
+      - traefik.http.routers.who.entrypoints=websecure
+      - traefik.http.routers.who.tls.certresolver=le-dns
 
+      # Unraid UI
+      - net.unraid.docker.webui=https://whoami.stephandkyle.us
+      - net.unraid.docker.icon=https://cdn.jsdelivr.net/gh/selfhst/icons/png/traefik.png
   

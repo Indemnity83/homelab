@@ -5,7 +5,7 @@ networks:
 services:
   mailgun:
     image: crazymax/msmtpd:latest
-    container_name: mail-relay
+    container_name: mailgun
     restart: unless-stopped
     networks:
       - traefik_proxy
@@ -40,3 +40,6 @@ services:
       # DSN (delivery status notifications) – usually off is fine
       SMTP_DSN_NOTIFY: "off"
       SMTP_DSN_RETURN: "off"
+    labels:
+      # Unraid UI
+      - net.unraid.docker.icon=https://cdn.jsdelivr.net/gh/selfhst/icons/png/mailgun.png

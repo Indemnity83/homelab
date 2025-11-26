@@ -9,21 +9,18 @@ services:
     image: ghcr.io/paperless-ngx/paperless-ngx:latest
     container_name: paperless
     restart: unless-stopped
-    depends_on:
-      - paperless-redis
     networks:
       - traefik_proxy
       - paperless_net
 
     environment:
       # UID/GID that should own files on disk
-      USERMAP_UID: "${PUID:-99}"
-      USERMAP_GID: "${PGID:-100}"
-      UMASK: "${UMASK:-002}"
+      USERMAP_UID: "${USERMAP_UID:-99}"
+      USERMAP_GID: "${USERMAP_GID:-100}"
 
       # Timezone + base URL
       PAPERLESS_TIME_ZONE: "${TZ:-America/Los_Angeles}"
-      PAPERLESS_URL: "https://paperless.stephandkyle.us"
+      PAPERLESS_URL: "https://docs.stephandkyle.us"
 
       # Redis (used even when DB is SQLite)
       PAPERLESS_REDIS: "redis://paperless-redis:6379"
@@ -32,42 +29,66 @@ services:
       PAPERLESS_OCR_LANGUAGE: "eng"
       # PAPERLESS_SECRET_KEY: "set-me-in-.env-for-real"
 
+      # Authentik Auth
+      PAPERLESS_ENABLE_ALLAUTH: true
+      PAPERLESS_APPS: allauth.socialaccount.providers.openid_connect
+      PAPERLESS_SOCIALACCOUNT_PROVIDERS: >
+          {
+            "openid_connect": {
+              "APPS": [
+                {
+                  "provider_id": "authentik",
+                  "name": "authentik",
+                  "client_id": "${OAUTH_CLIENT_ID}",
+                  "secret": "${OAUTH_SECRET}",
+                  "settings": {
+                    "server_url": "https://auth.stephandkyle.us/application/o/paperless/.well-known/openid-configuration",
+                    "claims": {"username": "email"}
+                  }
+                }
+              ],
+              "OAUTH_PKCE_ENABLED": "True"
+            }
+          }
+      PAPERLESS_AUTO_LOGIN: true
+      PAPERLESS_AUTO_CREATE: true
+      PAPERLESS_LOGOUT_REDIRECT_URL: "https://auth.stephandkyle.us/application/o/paperless/end-session/"
+
     volumes:
       - /mnt/user/appdata/paperless:/usr/src/paperless/data
       - /mnt/user/public/paperless/media:/usr/src/paperless/media
       - /mnt/user/public/paperless/export:/usr/src/paperless/export
       - /mnt/user/public/paperless/consume/:/usr/src/paperless/consume
 
-    healthcheck:
-      test: ["CMD-SHELL", "curl -fsS http://localhost:8000/health/ || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 60s
-
     labels:
-      - "traefik.enable=true"
-      - "traefik.docker.network=traefik_proxy"
-
-      # Router
-      - "traefik.http.routers.paperless.rule=Host(`paperless.stephandkyle.us`)"
-      - "traefik.http.routers.paperless.entrypoints=websecure"
-      - "traefik.http.routers.paperless.tls.certresolver=le-dns"
-      - "traefik.http.routers.paperless.middlewares=ip-allowlist@docker"
+      - traefik.enable=true
+      - traefik.docker.network=traefik_proxy
 
       # Service
-      - "traefik.http.services.paperless.loadbalancer.server.port=8000"
+      - traefik.http.services.paperless.loadbalancer.server.port=8000
+      
+      # Router
+      - traefik.http.routers.paperless.rule=Host(`docs.stephandkyle.us`)
+      - traefik.http.routers.paperless.entrypoints=websecure
+      - traefik.http.routers.paperless.tls.certresolver=le-dns
 
       # Homepage discovery
-      - "homepage.group=Docs"
-      - "homepage.name=Paperless"
-      - "homepage.icon=si-paperlessngx"
-      - "homepage.href=https://paperless.stephandkyle.us"
-      - "homepage.description=Paperless-ngx document archive"
+      - homepage.group=Home Services
+      - homepage.name=Documents
+      - homepage.icon=sh-paperless-ngx
+      - homepage.href=https://docs.stephandkyle.us
+
+      # Homepage widget
+      - homepage.widget.type=paperlessngx
+      - homepage.widget.url=http://paperless:8000
+      - homepage.widget.key=${PAPERLESS_API_KEY}
+
+      # Watchtower Updates
+      - com.centurylinklabs.watchtower.enable=true
 
       # Unraid UI
-      - "net.unraid.docker.webui=https://paperless.stephandkyle.us"
-      - "net.unraid.docker.icon=https://raw.githubusercontent.com/linuxserver/docker-templates/master/linuxserver.io/img/paperless-ng.png"
+      - net.unraid.docker.webui=https://docs.stephandkyle.us
+      - net.unraid.docker.icon=https://cdn.jsdelivr.net/gh/selfhst/icons/png/paperless-ngx.png
 
   paperless-redis:
     image: redis:7-alpine
@@ -75,4 +96,16 @@ services:
     restart: unless-stopped
     networks:
       - paperless_net
-    command: ["redis-server", "--save", "60", "1", "--loglevel", "warning"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+
+    labels:
+    # Watchtower Updates
+      - com.centurylinklabs.watchtower.enable=true
+      
+    # Unraid UI metadata
+      - net.unraid.docker.icon=https://cdn.jsdelivr.net/gh/selfhst/icons/png/redis.png

@@ -1,0 +1,109 @@
+networks:
+  traefik_proxy:
+    external: true
+
+services:
+  openwebui:
+    image: ghcr.io/open-webui/open-webui:main-slim
+    container_name: openwebui
+    restart: unless-stopped
+    networks:
+      - traefik_proxy
+    environment:
+      - TZ=America/Los_Angeles
+      - PUID=${PUID:-99}
+      - PGID=${PGID:-100}
+      - UMASK=${UMASK:-002}
+
+      # OpenAI API
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - OPENAI_API_BASE_URL=https://api.openai.com/v1
+      - OPENAI_DEFAULT_MODEL=gpt-5-chat-latest
+      - ENABLE_LOCAL_MODELS=false
+
+      # Authentik
+      - OAUTH_CLIENT_ID=${OAUTH_CLIENT_ID}
+      - OAUTH_CLIENT_SECRET=${OAUTH_CLIENT_SECRET}
+      - OAUTH_PROVIDER_NAME=authentik
+      - OPENID_PROVIDER_URL=https://auth.stephandkyle.us/application/o/open-web-ui/.well-known/openid-configuration
+      - OPENID_REDIRECT_URI=https://ai.stephandkyle.us/oauth/oidc/callback
+      - WEBUI_URL=https://ai.stephandkyle.us
+      - ENABLE_OAUTH_SIGNUP=true
+      - ENABLE_LOGIN_FORM=false
+      - OAUTH_MERGE_ACCOUNTS_BY_EMAIL=true
+
+    volumes:
+      - /mnt/user/appdata/openwebui:/app/backend/data
+
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=traefik_proxy
+
+      # Service
+      - traefik.http.services.openwebui.loadbalancer.server.port=8080
+
+      # Router
+      - traefik.http.routers.openwebui.rule=Host(`ai.stephandkyle.us`)
+      - traefik.http.routers.openwebui.entrypoints=websecure
+      - traefik.http.routers.openwebui.tls.certresolver=le-dns
+      
+      # Redirect for chat -> ai
+      - traefik.http.routers.openwebui-chat.rule=Host(`chat.stephandkyle.us`)
+      - traefik.http.routers.openwebui-chat.entrypoints=websecure
+      - traefik.http.routers.openwebui-chat.tls.certresolver=le-dns
+      - traefik.http.routers.openwebui-chat.middlewares=redirect-chat-to-ai
+      - traefik.http.routers.openwebui-chat.service=noop@internal
+      - traefik.http.middlewares.redirect-chat-to-ai.redirectregex.regex=^https?://chat\\.stephandkyle.us\\.us(.*)
+      - traefik.http.middlewares.redirect-chat-to-ai.redirectregex.replacement=https://ai.stephandkyle.us$${1}
+      - traefik.http.middlewares.redirect-chat-to-ai.redirectregex.permanent=true
+
+      # Watchtower Updates
+      - com.centurylinklabs.watchtower.enable=true
+
+      # Homepage discovery
+      - homepage.group=Quick Links
+      - homepage.name=Open WebUI
+      - homepage.description=AI chat interface backed by OpenAI/GPT models.
+      - homepage.icon=sh-open-webui
+      - homepage.href=https://ai.stephandkyle.us
+
+      # Unraid UI
+      - net.unraid.docker.webui=https://ai.stephandkyle.us
+      - net.unraid.docker.icon=https://cdn.jsdelivr.net/gh/selfhst/icons/png/open-webui.png
+
+  claude-code-proxy:
+    image: ghcr.io/1rgs/claude-code-proxy:main@sha256:bb2684c846d3eb801ebacffa455c5be6d7f14c7d911375fdb880638dddb8362b
+    container_name: claude-code-proxy
+    restart: unless-stopped
+    networks:
+      - traefik_proxy
+    environment:
+      # OpenAI API
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=traefik_proxy
+
+      # Service
+      - traefik.http.services.claude-code-proxy.loadbalancer.server.port=8082
+
+      # Router
+      - traefik.http.routers.claude-code-proxy.rule=Host(`claude.stephandkyle.us`)
+      - traefik.http.routers.claude-code-proxy.entrypoints=websecure
+      - traefik.http.routers.claude-code-proxy.tls.certresolver=le-dns
+      - traefik.http.routers.claude-code-proxy.middlewares=ip-allowlist@docker
+
+      # Watchtower Updates
+      - com.centurylinklabs.watchtower.enable=true
+
+      # Homepage discovery
+      - homepage.group=Quick Links
+      - homepage.name=Claude Code Proxy
+      - homepage.description=Run Claude Code on OpenAI models.
+      - homepage.icon=sh-claude
+      - homepage.href=https://claude.stephandkyle.us
+
+      # Unraid UI
+      - net.unraid.docker.webui=https://claude.stephandkyle.us
+      - net.unraid.docker.icon=https://cdn.jsdelivr.net/gh/selfhst/icons@master/png/claude.png

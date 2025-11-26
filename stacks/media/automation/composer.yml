@@ -7,55 +7,6 @@ volumes:
     external: true
     
 services:
-  prowlarr:
-    image: lscr.io/linuxserver/prowlarr:latest
-    container_name: prowlarr
-    restart: unless-stopped
-    networks:
-      - traefik_proxy
-    environment:
-      PUID: "${PUID:-99}"
-      PGID: "${PGID:-100}"
-      UMASK: "${UMASK:-002}"
-      TZ: "${TZ:-America/Los_Angeles}"
-    volumes:
-      - /mnt/user/appdata/prowlarr:/config
-    labels:
-      - "traefik.enable=true"
-      - "traefik.docker.network=traefik_proxy"
-
-      # Router
-      - "traefik.http.routers.prowlarr.rule=Host(`prowlarr.stephandkyle.us`)"
-      - "traefik.http.routers.prowlarr.entrypoints=websecure"
-      - "traefik.http.routers.prowlarr.tls.certresolver=le-dns"
-
-      # Service
-      - "traefik.http.services.prowlarr.loadbalancer.server.port=9696"
-
-      # Middleware
-      - "traefik.http.routers.prowlarr.middlewares=ip-allowlist@docker"
-
-      # Homepage discovery
-      - "homepage.group=Media"
-      - "homepage.name=Prowlarr"
-      - "homepage.icon=prowlarr"
-      - "homepage.href=https://prowlarr.stephandkyle.us"
-      - "homepage.description=Indexer manager and search aggregator"
-
-      # Watchtower Updates
-      - "com.centurylinklabs.watchtower.enable=true"
-
-      # Unraid UI
-      - "net.unraid.docker.webui=https://prowlarr.stephandkyle.us"
-      - "net.unraid.docker.icon=https://raw.githubusercontent.com/linuxserver/docker-templates/master/linuxserver.io/img/prowlarr-logo.png"
-
-    healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:9696/ping"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
-
   radarr:
     image: lscr.io/linuxserver/radarr:latest
     container_name: radarr
@@ -71,33 +22,35 @@ services:
       - /mnt/user/appdata/radarr:/config
       - media:/media
     labels:
-      - "traefik.enable=true"
-      - "traefik.docker.network=traefik_proxy"
-
-      # Router
-      - "traefik.http.routers.radarr.rule=Host(`radarr.stephandkyle.us`)"
-      - "traefik.http.routers.radarr.entrypoints=websecure"
-      - "traefik.http.routers.radarr.tls.certresolver=le-dns"
+      - traefik.enable=true
+      - traefik.docker.network=traefik_proxy
 
       # Service
-      - "traefik.http.services.radarr.loadbalancer.server.port=7878"
+      - traefik.http.services.radarr.loadbalancer.server.port=7878
 
-      # Middleware
-      - "traefik.http.routers.radarr.middlewares=ip-allowlist@docker"
+      # Router
+      - traefik.http.routers.radarr.rule=Host(`radarr.stephandkyle.us`)
+      - traefik.http.routers.radarr.entrypoints=websecure
+      - traefik.http.routers.radarr.tls.certresolver=le-dns
+      - traefik.http.routers.radarr.middlewares=ip-allowlist@docker
 
       # Homepage discovery
-      - "homepage.group=Media"
-      - "homepage.name=Radarr"
-      - "homepage.icon=radarr"
-      - "homepage.href=https://radarr.stephandkyle.us"
-      - "homepage.description=Automated movie management"
+      - homepage.group=Arr Stack 1
+      - homepage.name=Radarr
+      - homepage.icon=sh-radarr
+      - homepage.href=https://radarr.stephandkyle.us
+
+      # Homepage widget
+      - homepage.widget.type=radarr
+      - homepage.widget.url=http://radarr:7878
+      - homepage.widget.key=${RADARR_API_KEY}
 
       # Watchtower Updates
-      - "com.centurylinklabs.watchtower.enable=true"
+      - com.centurylinklabs.watchtower.enable=true
 
       # Unraid UI
-      - "net.unraid.docker.webui=https://radarr.stephandkyle.us"
-      - "net.unraid.docker.icon=https://raw.githubusercontent.com/linuxserver/docker-templates/master/linuxserver.io/img/radarr-logo.png"
+      - net.unraid.docker.webui=https://radarr.stephandkyle.us
+      - net.unraid.docker.icon=https://cdn.jsdelivr.net/gh/selfhst/icons/png/radarr.png
 
     healthcheck:
       test: ["CMD", "wget", "--spider", "-q", "http://localhost:7878/ping"]
@@ -121,33 +74,35 @@ services:
       - /mnt/user/appdata/sonarr:/config
       - media:/media
     labels:
-      - "traefik.enable=true"
-      - "traefik.docker.network=traefik_proxy"
-
-      # Router
-      - "traefik.http.routers.sonarr.rule=Host(`sonarr.stephandkyle.us`)"
-      - "traefik.http.routers.sonarr.entrypoints=websecure"
-      - "traefik.http.routers.sonarr.tls.certresolver=le-dns"
+      - traefik.enable=true
+      - traefik.docker.network=traefik_proxy
 
       # Service
-      - "traefik.http.services.sonarr.loadbalancer.server.port=8989"
+      - traefik.http.services.sonarr.loadbalancer.server.port=8989
 
-      # Middleware (reuse your allowlist)
-      - "traefik.http.routers.sonarr.middlewares=ip-allowlist@docker"
+      # Router
+      - traefik.http.routers.sonarr.rule=Host(`sonarr.stephandkyle.us`)
+      - traefik.http.routers.sonarr.entrypoints=websecure
+      - traefik.http.routers.sonarr.tls.certresolver=le-dns
+      - traefik.http.routers.sonarr.middlewares=ip-allowlist@docker
 
       # Homepage discovery
-      - "homepage.group=Media"
-      - "homepage.name=Sonarr"
-      - "homepage.icon=sonarr"
-      - "homepage.href=https://sonarr.stephandkyle.us"
-      - "homepage.description=Automated TV series management"
+      - homepage.group=Arr Stack 1
+      - homepage.name=Sonarr
+      - homepage.icon=sh-sonarr
+      - homepage.href=https://sonarr.stephandkyle.us
+
+      # Homepage widget
+      - homepage.widget.type=sonarr
+      - homepage.widget.url=http://sonarr:8989
+      - homepage.widget.key=${SONARR_API_KEY}
 
       # Watchtower Updates
-      - "com.centurylinklabs.watchtower.enable=true"
+      - com.centurylinklabs.watchtower.enable=true
 
       # Unraid UI
-      - "net.unraid.docker.webui=https://sonarr.stephandkyle.us"
-      - "net.unraid.docker.icon=https://raw.githubusercontent.com/linuxserver/docker-templates/master/linuxserver.io/img/sonarr-logo.png"
+      - net.unraid.docker.webui=https://sonarr.stephandkyle.us
+      - net.unraid.docker.icon=https://cdn.jsdelivr.net/gh/selfhst/icons/png/sonarr.png
 
     healthcheck:
       test: ["CMD", "wget", "--spider", "-q", "http://localhost:8989/ping"]
@@ -171,33 +126,35 @@ services:
       - /mnt/user/appdata/lidarr:/config
       - media:/media
     labels:
-      - "traefik.enable=true"
-      - "traefik.docker.network=traefik_proxy"
+      - traefik.enable=true
+      - traefik.docker.network=traefik_proxy
+
+      # Service
+      - traefik.http.services.lidarr.loadbalancer.server.port=8686
       
       # Router
-      - "traefik.http.routers.lidarr.rule=Host(`lidarr.stephandkyle.us`)"
-      - "traefik.http.routers.lidarr.entrypoints=websecure"
-      - "traefik.http.routers.lidarr.tls.certresolver=le-dns"
-      
-      # Service
-      - "traefik.http.services.lidarr.loadbalancer.server.port=8686"
-      
-      # Middleware
-      - "traefik.http.routers.lidarr.middlewares=ip-allowlist@docker"
+      - traefik.http.routers.lidarr.rule=Host(`lidarr.stephandkyle.us`)
+      - traefik.http.routers.lidarr.entrypoints=websecure
+      - traefik.http.routers.lidarr.tls.certresolver=le-dns
+      - traefik.http.routers.lidarr.middlewares=ip-allowlist@docker
 
       # Homepage discovery
-      - "homepage.group=Media"
-      - "homepage.name=Lidarr"
-      - "homepage.icon=lidarr"
-      - "homepage.href=https://lidarr.stephandkyle.us"
-      - "homepage.description=Music library manager"
+      - homepage.group=Arr Stack 1
+      - homepage.name=Lidarr
+      - homepage.icon=sh-lidarr
+      - homepage.href=https://lidarr.stephandkyle.us
+
+      # Homepage widget
+      - homepage.widget.type=lidarr
+      - homepage.widget.url=http://lidarr:8686
+      - homepage.widget.key=${LIDARR_API_KEY}
 
       # Watchtower Updates
-      - "com.centurylinklabs.watchtower.enable=true"
+      - com.centurylinklabs.watchtower.enable=true
       
       # Unraid UI
-      - "net.unraid.docker.webui=https://lidarr.stephandkyle.us"
-      - "net.unraid.docker.icon=https://raw.githubusercontent.com/linuxserver/docker-templates/master/linuxserver.io/img/lidarr-logo.png"
+      - net.unraid.docker.webui=https://lidarr.stephandkyle.us
+      - net.unraid.docker.icon=https://cdn.jsdelivr.net/gh/selfhst/icons/png/lidar.png
 
     healthcheck:
       test: ["CMD", "wget", "--spider", "-q", "http://localhost:8686/ping"]
@@ -221,32 +178,35 @@ services:
       - /mnt/user/appdata/readarr:/config
       - media:/media
     labels:
-      - "traefik.enable=true"
-      - "traefik.docker.network=traefik_proxy"
+      - traefik.enable=true
+      - traefik.docker.network=traefik_proxy
+
+      # Service
+      - traefik.http.services.readarr.loadbalancer.server.port=8787
 
       # Router
-      - "traefik.http.routers.readarr.rule=Host(`readarr.stephandkyle.us`)"
-      - "traefik.http.routers.readarr.entrypoints=websecure"
-      - "traefik.http.routers.readarr.tls.certresolver=le-dns"
-
-      # Service port (Readarr listens on 8787)
-      - "traefik.http.services.readarr.loadbalancer.server.port=8787"
-
-      # Middleware
-      - "traefik.http.routers.readarr.middlewares=ip-allowlist@docker"
+      - traefik.http.routers.readarr.rule=Host(`readarr.stephandkyle.us`)
+      - traefik.http.routers.readarr.entrypoints=websecure
+      - traefik.http.routers.readarr.tls.certresolver=le-dns
+      - traefik.http.routers.readarr.middlewares=ip-allowlist@docker
 
       # Homepage discovery
-      - "homepage.group=Media"
-      - "homepage.name=Readarr"
-      - "homepage.icon=readarr"
-      - "homepage.href=https://readarr.stephandkyle.us"
-      - "homepage.description=E-book & audiobook manager"
+      - homepage.group=Arr Stack 1
+      - homepage.name=Readarr
+      - homepage.icon=sh-readarr
+      - homepage.href=https://readarr.stephandkyle.us
+
+      # Homepage widget
+      - homepage.widget.type=readarr
+      - homepage.widget.url=http://readarr:8787
+      - homepage.widget.key=${READARR_API_KEY}
 
       # Watchtower Updates
-      - "com.centurylinklabs.watchtower.enable=true"
+      - com.centurylinklabs.watchtower.enable=true
 
       # Unraid UI metadata
-      - "net.unraid.docker.webui=https://readarr.stephandkyle.us"
+      - net.unraid.docker.webui=https://readarr.stephandkyle.us
+      - net.unraid.docker.icon=https://cdn.jsdelivr.net/gh/selfhst/icons/png/readarr.png
 
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS http://localhost:8787/ping >/dev/null || exit 1"]
@@ -254,6 +214,58 @@ services:
       timeout: 10s
       retries: 5
       start_period: 45s
+
+  prowlarr:
+    image: lscr.io/linuxserver/prowlarr:latest
+    container_name: prowlarr
+    restart: unless-stopped
+    networks:
+      - traefik_proxy
+    environment:
+      PUID: "${PUID:-99}"
+      PGID: "${PGID:-100}"
+      UMASK: "${UMASK:-002}"
+      TZ: "${TZ:-America/Los_Angeles}"
+    volumes:
+      - /mnt/user/appdata/prowlarr:/config
+    
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=traefik_proxy
+
+      # Service
+      - traefik.http.services.prowlarr.loadbalancer.server.port=9696
+
+      # Router
+      - traefik.http.routers.prowlarr.rule=Host(`prowlarr.stephandkyle.us`)
+      - traefik.http.routers.prowlarr.entrypoints=websecure
+      - traefik.http.routers.prowlarr.tls.certresolver=le-dns
+      - traefik.http.routers.prowlarr.middlewares=ip-allowlist@docker
+
+      # Homepage discovery
+      - homepage.group=Arr Stack 2
+      - homepage.name=Prowlarr
+      - homepage.icon=sh-prowlarr
+      - homepage.href=https://prowlarr.stephandkyle.us
+
+      # Homepage widget
+      - homepage.widget.type=prowlarr
+      - homepage.widget.url=http://prowlarr:9696
+      - homepage.widget.key=${PROWLARR_API_KEY}
+
+      # Watchtower Updates
+      - com.centurylinklabs.watchtower.enable=true
+
+      # Unraid UI
+      - net.unraid.docker.webui=https://prowlarr.stephandkyle.us
+      - net.unraid.docker.icon=https://cdn.jsdelivr.net/gh/selfhst/icons/png/prowlarr.png
+
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:9696/ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
 
   bazarr:
     image: lscr.io/linuxserver/bazarr:latest
@@ -270,33 +282,35 @@ services:
       - /mnt/user/appdata/bazarr:/config
       - media:/media
     labels:
-      - "traefik.enable=true"
-      - "traefik.docker.network=traefik_proxy"
+      - traefik.enable=true
+      - traefik.docker.network=traefik_proxy
+
+      # Service
+      - traefik.http.services.bazarr.loadbalancer.server.port=6767
       
       # Router
-      - "traefik.http.routers.bazarr.rule=Host(`bazarr.stephandkyle.us`)"
-      - "traefik.http.routers.bazarr.entrypoints=websecure"
-      - "traefik.http.routers.bazarr.tls.certresolver=le-dns"
-      
-      # Service
-      - "traefik.http.services.bazarr.loadbalancer.server.port=6767"
-      
-      # Middleware
-      - "traefik.http.routers.bazarr.middlewares=ip-allowlist@docker"
+      - traefik.http.routers.bazarr.rule=Host(`bazarr.stephandkyle.us`)
+      - traefik.http.routers.bazarr.entrypoints=websecure
+      - traefik.http.routers.bazarr.tls.certresolver=le-dns
+      - traefik.http.routers.bazarr.middlewares=ip-allowlist@docker
 
       # Homepage discovery
-      - "homepage.group=Media"
-      - "homepage.name=Bazarr"
-      - "homepage.icon=bazarr"
-      - "homepage.href=https://bazarr.stephandkyle.us"
-      - "homepage.description=Subtitle manager for Radarr and Sonarr"
+      - homepage.group=Arr Stack 2
+      - homepage.name=Bazarr
+      - homepage.icon=sh-bazarr
+      - homepage.href=https://bazarr.stephandkyle.us
+
+      # Homepage widget
+      - homepage.widget.type=bazarr
+      - homepage.widget.url=http://bazarr:6767
+      - homepage.widget.key=${BAZARR_API_KEY}
 
       # Watchtower Updates
-      - "com.centurylinklabs.watchtower.enable=true"
+      - com.centurylinklabs.watchtower.enable=true
       
       # Unraid UI
-      - "net.unraid.docker.webui=https://bazarr.stephandkyle.us"
-      - "net.unraid.docker.icon=https://raw.githubusercontent.com/linuxserver/docker-templates/master/linuxserver.io/img/bazarr-logo.png"
+      - net.unraid.docker.webui=https://bazarr.stephandkyle.us
+      - net.unraid.docker.icon=https://cdn.jsdelivr.net/gh/selfhst/icons/png/bazarr.png
 
     healthcheck:
       test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:6767/ping"]
@@ -320,32 +334,24 @@ services:
       - /mnt/user/appdata/whisparr:/config
       - media:/media
     labels:
-      - "traefik.enable=true"
-      - "traefik.docker.network=traefik_proxy"
+      - traefik.enable=true
+      - traefik.docker.network=traefik_proxy
+
+      # Service
+      - traefik.http.services.whisparr.loadbalancer.server.port=6969
       
       # Router
-      - "traefik.http.routers.whisparr.rule=Host(`whisparr.stephandkyle.us`)"
-      - "traefik.http.routers.whisparr.entrypoints=websecure"
-      - "traefik.http.routers.whisparr.tls.certresolver=le-dns"
-      
-      # Service
-      - "traefik.http.services.whisparr.loadbalancer.server.port=6969"
-      
-      # Middleware
-      - "traefik.http.routers.whisparr.middlewares=ip-allowlist@docker"
-
-      # Homepage discovery
-      - "homepage.group=Media"
-      - "homepage.name=Whisparr"
-      - "homepage.icon=whisparr"
-      - "homepage.href=https://whisparr.stephandkyle.us"
-      - "homepage.description=Adult media manager"
+      - traefik.http.routers.whisparr.rule=Host(`whisparr.stephandkyle.us`)
+      - traefik.http.routers.whisparr.entrypoints=websecure
+      - traefik.http.routers.whisparr.tls.certresolver=le-dns
+      - traefik.http.routers.whisparr.middlewares=ip-allowlist@docker
 
       # Watchtower Updates
-      - "com.centurylinklabs.watchtower.enable=true"
+      - com.centurylinklabs.watchtower.enable=true
       
       # Unraid UI
-      - "net.unraid.docker.webui=https://whisparr.stephandkyle.us"
+      - net.unraid.docker.webui=https://whisparr.stephandkyle.us
+      - net.unraid.docker.icon=https://cdn.jsdelivr.net/gh/selfhst/icons/png/whisparr.png
 
     healthcheck:
       test: ["CMD-SHELL", "nc -zw2 127.0.0.1 6969 || exit 1"]
@@ -369,3 +375,6 @@ services:
     labels:
       # Watchtower Updates
       - "com.centurylinklabs.watchtower.enable=true"
+
+      # Unraid UI
+      - net.unraid.docker.icon=https://cdn.jsdelivr.net/gh/selfhst/icons/png/recyclarr.png

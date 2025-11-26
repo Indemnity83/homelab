@@ -1,0 +1,39 @@
+networks:
+  traefik_proxy:
+    external: true
+
+services:
+  homepage:
+    image: ghcr.io/gethomepage/homepage:latest
+    container_name: homepage
+    restart: unless-stopped
+    networks:
+      - traefik_proxy
+    environment:
+      # PUID: "${PUID:-99}"
+      # PGID: "${PGID:-100}"
+      # UMASK: "${UMASK:-002}"
+      TZ: "${TZ:-America/Los_Angeles}"
+      HOMEPAGE_ALLOWED_HOSTS: home.stephandkyle.us
+    volumes:
+      - /mnt/user/appdata/homepage:/app/config
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=traefik_proxy
+
+      # Service
+      - traefik.http.services.homepage.loadbalancer.server.port=3000
+
+      # Router
+      - traefik.http.routers.homepage.rule=Host(`home.stephandkyle.us`)
+      - traefik.http.routers.homepage.entrypoints=websecure
+      - traefik.http.routers.homepage.tls.certresolver=le-dns
+      - traefik.http.routers.homepage.middlewares=ip-allowlist@docker
+
+      # Watchtower Updates
+      - com.centurylinklabs.watchtower.enable=true
+
+      # Unraid UI
+      - net.unraid.docker.webui=https://home.stephandkyle.us
+      - net.unraid.docker.icon=https://cdn.jsdelivr.net/gh/selfhst/icons/png/homepage.png

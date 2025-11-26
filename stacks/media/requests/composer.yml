@@ -27,27 +27,32 @@ services:
       start_period: 60s
 
     labels:
-      - "traefik.enable=true"
-      - "traefik.docker.network=traefik_proxy"
-
-      # Router
-      - "traefik.http.routers.ombi.rule=Host(`requests.stephandkyle.us`)"
-      - "traefik.http.routers.ombi.entrypoints=websecure"
-      - "traefik.http.routers.ombi.tls.certresolver=le-dns"
+      - traefik.enable=true
+      - traefik.docker.network=traefik_proxy
 
       # Service
-      - "traefik.http.services.ombi.loadbalancer.server.port=3579"
+      - traefik.http.services.ombi.loadbalancer.server.port=3579
+
+      # Router
+      - traefik.http.routers.ombi.rule=Host(`requests.stephandkyle.us`)
+      - traefik.http.routers.ombi.entrypoints=websecure
+      - traefik.http.routers.ombi.tls.certresolver=le-dns
+      - traefik.http.routers.ombi.middlewares=authentik@docker
 
       # Homepage discovery
-      - "homepage.group=Media"
-      - "homepage.name=Requests"
-      - "homepage.icon=ombi"
-      - "homepage.href=https://requests.stephandkyle.us"
-      - "homepage.description=Media requests via Ombi"
+      - homepage.group=Media
+      - homepage.name=Requests
+      - homepage.icon=sh-ombi
+      - homepage.href=https://requests.stephandkyle.us
+
+      # Homepage widget
+      - homepage.widget.type=ombi
+      - homepage.widget.url=http://ombi:3579
+      - homepage.widget.key=${OMBI_API_KEY}
 
       # Watchtower Updates
-      - "com.centurylinklabs.watchtower.enable=true"
-
+      - com.centurylinklabs.watchtower.enable=true
+      
       # Unraid UI
-      - "net.unraid.docker.webui=https://requests.stephandkyle.us"
-      - "net.unraid.docker.icon=https://raw.githubusercontent.com/linuxserver/docker-templates/master/linuxserver.io/img/ombi-logo.png"
+      - net.unraid.docker.webui=https://requests.stephandkyle.us
+      - net.unraid.docker.icon=https://cdn.jsdelivr.net/gh/selfhst/icons/png/ombi.png

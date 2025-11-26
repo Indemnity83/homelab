@@ -11,24 +11,18 @@ services:
     image: plexinc/pms-docker:latest
     container_name: plex
     restart: unless-stopped
-
-    # Host mode = best Plex experience (LAN discovery, DLNA, etc.)
     network_mode: host
 
-    # Use Nvidia runtime (Unraid Nvidia plugin should already have this installed)
-    runtime: nvidia
+    # Intel QuickSync Device 
+    devices: 
+      - /dev/dri:/dev/dri
 
     environment:
       # --- Identities / permissions ---
       PLEX_UID: "${PUID:-99}"
       PLEX_GID: "${PGID:-100}"
       UMASK: "${UMASK:-002}"
-      TZ: "${TZ:-America/Los_Angeles}"
-
-      # --- Nvidia HW transcoding ---
-      NVIDIA_VISIBLE_DEVICES: "GPU-9876b693-fbf5-e082-da77-cf08109c3e3d"
-      NVIDIA_DRIVER_CAPABILITIES: "compute,video,utility"
-
+      TZ: America/Los_Angeles
     volumes:
       # Plex config / metadata
       - /mnt/user/appdata/plex:/config
@@ -41,16 +35,24 @@ services:
       - /tmp:/transcode
 
     labels:
-      # Unraid UI (Dockerman) integration
-      - "net.unraid.docker.webui=http://calcifer.local:32400/web"
-      - "net.unraid.docker.icon=https://raw.githubusercontent.com/plexinc/pms-docker/master/plex-logo.png"
-
       # Homepage discovery
-      - "homepage.group=Media"
-      - "homepage.name=Plex"
-      - "homepage.icon=plex"
-      - "homepage.href=http://calcifer.local:32400/web"
-      - "homepage.description=Media server (Plex)"
+      - homepage.group=Media
+      - homepage.name=Plex
+      - homepage.icon=sh-plex
+      - homepage.href=http://app.plex.tv
+      - homepage.description=Media server (Plex)
+
+      # Homepage widget
+      - homepage.widget.type=plex
+      - homepage.widget.url=http://192.168.1.8:32400
+      - homepage.widget.key=${PLEX_TOKEN}
+
+      # Watchtower Updates
+      - com.centurylinklabs.watchtower.enable=true
+
+      # Unraid UI
+      - net.unraid.docker.webui=http://app.plex.tv
+      - net.unraid.docker.icon=https://cdn.jsdelivr.net/gh/selfhst/icons/png/plex.png
 
   audiobookshelf:
     image: ghcr.io/advplyr/audiobookshelf:latest
@@ -61,31 +63,39 @@ services:
     environment:
       PUID: "${PUID:-99}"
       PGID: "${PGID:-100}"
-      UMASK: "${UMASK:-002}"
-      TZ: "${TZ:-America/Los_Angeles}"
+      TZ: America/Los_Angeles
     volumes:
       - /mnt/user/appdata/audiobookshelf:/config
       - media:/media
     labels:
-      - "traefik.enable=true"
-      - "traefik.docker.network=traefik_proxy"
+      - traefik.enable=true
+      - traefik.docker.network=traefik_proxy
+
+      # Service
+      - traefik.http.services.audiobookshelf.loadbalancer.server.port=80
   
       # Router
-      - "traefik.http.routers.audiobookshelf.rule=Host(`audiobooks.stephandkyle.us`)"
-      - "traefik.http.routers.audiobookshelf.entrypoints=websecure"
-      - "traefik.http.routers.audiobookshelf.tls.certresolver=le-dns"
-      - "traefik.http.routers.audiobookshelf.middlewares=ip-allowlist@docker"
-  
-      # Service
-      - "traefik.http.services.audiobookshelf.loadbalancer.server.port=80"
+      - traefik.http.routers.audiobookshelf.rule=Host(`audiobooks.stephandkyle.us`)
+      - traefik.http.routers.audiobookshelf.entrypoints=websecure
+      - traefik.http.routers.audiobookshelf.tls.certresolver=le-dns
+      - traefik.http.routers.audiobookshelf.middlewares=ip-allowlist@docker
+
+      # Watchtower Updates
+      - com.centurylinklabs.watchtower.enable=true
   
       # Homepage discovery
-      - "homepage.group=Media"
-      - "homepage.name=Audiobooks"
-      - "homepage.icon=mdi-headphones"
-      - "homepage.href=https://audiobooks.stephandkyle.us"
-      - "homepage.description=Audiobook & podcast library"
+      - homepage.group=Media
+      - homepage.name=Audiobooks
+      - homepage.icon=sh-audiobookshelf
+      - homepage.href=https://audiobooks.stephandkyle.us
+      - homepage.description=Audiobook & podcast library
+
+      # Homepage widget
+      - homepage.widget.type=audiobookshelf
+      - homepage.widget.url=http://audiobookshelf:80
+      - homepage.widget.key=${AUDIOBOOKSHELF_TOKEN}
+      - homepage.widget.fields=books,booksDuration
   
       # Unraid UI
-      - "net.unraid.docker.webui=https://audiobooks.stephandkyle.us"
-      - "net.unraid.docker.icon=https://raw.githubusercontent.com/advplyr/audiobookshelf/master/resources/icon.png"
+      - net.unraid.docker.webui=https://audiobooks.stephandkyle.us
+      - net.unraid.docker.icon=https://cdn.jsdelivr.net/gh/selfhst/icons/png/audiobookshelf.png

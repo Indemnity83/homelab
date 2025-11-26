@@ -1,3 +1,5 @@
+version: "3.9"
+
 networks:
   traefik_proxy:
     external: true
@@ -18,22 +20,25 @@ services:
     networks:
       - traefik_proxy
     environment:
-      TZ: "${TZ:-America/Los_Angeles}"
-
+      - TZ=America/Los_Angeles
+      
       # OpenVPN / Provider
-      VPN_SERVICE_PROVIDER: "privado"
-      OPENVPN_USER: "${OPENVPN_USER}"
-      OPENVPN_PASSWORD: "${OPENVPN_PASSWORD}"
+      - VPN_SERVICE_PROVIDER=privado
+      - OPENVPN_USER=${OPENVPN_USER}
+      - OPENVPN_PASSWORD=${OPENVPN_PASSWORD}
 
       # Target region — flexible, simple
-      SERVER_COUNTRIES: "United States"
+      - SERVER_COUNTRIES=United States
 
       # Allow Traefik to reach UIs
-      FIREWALL_INPUT_PORTS: "8080,8081"
-      FIREWALL_INPUT_SUBNETS: "172.21.0.0/16"
+      - FIREWALL_INPUT_PORTS=8000,8080,8081
+      - FIREWALL_INPUT_SUBNETS=172.18.0.0/16
+
+      # Enable API server
+      - HTTP_SERVER_ENABLED=true
 
       # Allow me some freedom
-      BLOCK_MALICIOUS: "off"
+      - BLOCK_MALICIOUS=off
 
     healthcheck:
       test: ["CMD-SHELL", "ip -4 addr show dev tun0 | grep -q 'inet ' && nc -zw2 1.1.1.1 80 || exit 1"]
@@ -43,62 +48,80 @@ services:
       start_period: 60s
       
     labels:
-      - "traefik.enable=true"
-      - "traefik.docker.network=traefik_proxy"
+      - traefik.enable=true
+      - traefik.docker.network=traefik_proxy
 
-      # Router — qBittorrent
-      - "traefik.http.routers.qb.rule=Host(`qb.stephandkyle.us`)"
-      - "traefik.http.routers.qb.entrypoints=websecure"
-      - "traefik.http.routers.qb.tls.certresolver=le-dns"
-      - "traefik.http.routers.qb.middlewares=ip-allowlist@docker"
-      - "traefik.http.routers.qb.service=qb-svc"
+      # qBittorrent (router -> service qb-svc)
+      - traefik.http.services.qb-svc.loadbalancer.server.port=8081
 
-      # Service - qBittorrent
-      - "traefik.http.services.qb-svc.loadbalancer.server.port=8081"
+      - traefik.http.routers.qb.rule=Host(`qb.stephandkyle.us`)
+      - traefik.http.routers.qb.entrypoints=websecure
+      - traefik.http.routers.qb.tls.certresolver=le-dns
+      - traefik.http.routers.qb.middlewares=ip-allowlist@docker
+      - traefik.http.routers.qb.service=qb-svc
+      
+      # SABnzbd (router -> service sab-svc)
+      - traefik.http.services.sab-svc.loadbalancer.server.port=8080
 
-      # Router — SABnzbd
-      - "traefik.http.routers.sab.rule=Host(`sab.stephandkyle.us`)"
-      - "traefik.http.routers.sab.entrypoints=websecure"
-      - "traefik.http.routers.sab.tls.certresolver=le-dns"
-      - "traefik.http.routers.sab.middlewares=ip-allowlist@docker"
-      - "traefik.http.routers.sab.service=sab-svc"
+      - traefik.http.routers.sab.rule=Host(`sab.stephandkyle.us`)
+      - traefik.http.routers.sab.entrypoints=websecure
+      - traefik.http.routers.sab.tls.certresolver=le-dns
+      - traefik.http.routers.sab.middlewares=ip-allowlist@docker
+      - traefik.http.routers.sab.service=sab-svc
 
-      # Service - SABnzbd
-      - "traefik.http.services.sab-svc.loadbalancer.server.port=8080"
+      # Homepage discovery
+      - homepage.group=Media Download
+      - homepage.name=Gluetun
+      - homepage.icon=sh-gluetun
 
+      # Homepage widget
+      - homepage.widget.type=gluetun
+      - homepage.widget.url=http://gluetun:8000
+
+      # Watchtower Updates
+      - com.centurylinklabs.watchtower.enable=true
+      
       # Unraid UI
-      - "org.unraid.docker.webui="
-      - "org.unraid.docker.icon=https://raw.githubusercontent.com/qdm12/gluetun/master/.github/icon.png"
+      - net.unraid.docker.icon=https://cdn.jsdelivr.net/gh/selfhst/icons/png/gluetun.png
 
   qbittorrent:
     image: lscr.io/linuxserver/qbittorrent:latest
     container_name: qbittorrent
     network_mode: "service:gluetun"
-    depends_on:
-      - gluetun
     environment:
       PUID: "${PUID:-99}"
       PGID: "${PGID:-100}"
       UMASK: "${UMASK:-002}"
       TZ: "${TZ:-America/Los_Angeles}"
+      WEBUI_PORT: "8081"
     volumes:
       - /mnt/user/appdata/qbittorrent:/config
       - media:/media
     restart: unless-stopped
     labels:
+      # Homepage discovery
+      - homepage.group=Media Download
+      - homepage.name=qBittorrent
+      - homepage.icon=sh-qbittorrent
+      - homepage.href=https://qb.stephandkyle.us
+
+      # Homepage widget
+      - homepage.widget.type=qbittorrent
+      - homepage.widget.url=http://gluetun:8081
+      - homepage.widget.username=${QB_USERNAME}
+      - homepage.widget.password=${QB_PASSWORD}
+
+      # Watchtower Updates
+      - com.centurylinklabs.watchtower.enable=true
+      
       # Unraid UI
-      - "org.opencontainers.image.title=qBittorrent"
-      - "org.opencontainers.image.description=VPN-backed qBittorrent client"
-      - "org.opencontainers.image.documentation=https://github.com/linuxserver/docker-qbittorrent"
-      - "org.unraid.docker.webui=https://qb.stephandkyle.us"
-      - "org.unraid.docker.icon=https://raw.githubusercontent.com/linuxserver/docker-templates/master/linuxserver.io/img/qbittorrent.png"
+      - net.unraid.docker.webui=https://qb.stephandkyle.us
+      - net.unraid.docker.icon=https://cdn.jsdelivr.net/gh/selfhst/icons/png/qbittorrent.png
   
   sabnzbd:
     image: lscr.io/linuxserver/sabnzbd:latest
     container_name: sabnzbd
     network_mode: "service:gluetun"
-    depends_on:
-      - gluetun
     environment:
       PUID: "${PUID:-99}"
       PGID: "${PGID:-100}"
@@ -109,9 +132,20 @@ services:
       - media:/media
     restart: unless-stopped
     labels:
+     # Homepage discovery
+      - homepage.group=Media Download
+      - homepage.name=SABnzbd
+      - homepage.icon=sh-sabnzbd
+      - homepage.href=https://sab.stephandkyle.us
+
+      # Homepage widget
+      - homepage.widget.type=sabnzbd
+      - homepage.widget.url=http://gluetun:8080
+      - homepage.widget.key=${SAB_API_KEY}
+
+      # Watchtower Updates
+      - com.centurylinklabs.watchtower.enable=true
+      
       # Unraid UI
-      - "org.opencontainers.image.title=SABnzbd"
-      - "org.opencontainers.image.description=VPN-backed SABnzbd client"
-      - "org.opencontainers.image.documentation=https://github.com/linuxserver/docker-sabnzbd"
-      - "org.unraid.docker.webui=https://sab.stephandkyle.us"
-      - "org.unraid.docker.icon=https://raw.githubusercontent.com/linuxserver/docker-templates/master/linuxserver.io/img/sabnzbd.png"
+      - net.unraid.docker.webui=https://sab.stephandkyle.us
+      - net.unraid.docker.icon=https://cdn.jsdelivr.net/gh/selfhst/icons/png/sabnzbd.png

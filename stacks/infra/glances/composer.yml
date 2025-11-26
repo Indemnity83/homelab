@@ -1,0 +1,25 @@
+services:
+  glances:
+    image: nicolargo/glances:latest
+    container_name: glances
+    restart: unless-stopped
+
+    ports:
+      - 61208:61208
+
+    environment:
+      TZ: "${TZ:-America/Los_Angeles}"
+      GLANCES_OPT: "-w"
+      
+    volumes:
+      - /mnt:/mnt:ro
+      - /mnt/user/appdata/glances:/etc/glances
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+
+    labels:
+      # Watchtower Updates
+      - com.centurylinklabs.watchtower.enable=true
+      
+      # Unraid UI
+      - net.unraid.docker.webui=http://calcifer.local:61208
+      - net.unraid.docker.icon=https://cdn.jsdelivr.net/gh/selfhst/icons/png/glances.png
