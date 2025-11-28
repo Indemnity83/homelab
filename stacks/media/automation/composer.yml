@@ -432,7 +432,8 @@ services:
         - base_url: "http://gluetun:8081"
           username: "${QBIT_USERNAME}"
           password: "${QBIT_PASSWORD}"
-        
+    volumes:
+      - media:/media
     labels:
       # Watchtower Updates
       - com.centurylinklabs.watchtower.enable=true
