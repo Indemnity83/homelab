@@ -319,46 +319,48 @@ services:
       retries: 3
       start_period: 30s
 
-  whisparr:
-    image: ghcr.io/hotio/whisparr:latest
-    container_name: whisparr
-    restart: unless-stopped
-    networks:
-      - traefik_proxy
-    environment:
-      PUID: "${PUID:-99}"
-      PGID: "${PGID:-100}"
-      UMASK: "${UMASK:-002}"
-      TZ: "${TZ:-America/Los_Angeles}"
-    volumes:
-      - /mnt/user/appdata/whisparr:/config
-      - media:/media
-    labels:
-      - traefik.enable=true
-      - traefik.docker.network=traefik_proxy
-
-      # Service
-      - traefik.http.services.whisparr.loadbalancer.server.port=6969
-      
-      # Router
-      - traefik.http.routers.whisparr.rule=Host(`whisparr.stephandkyle.us`)
-      - traefik.http.routers.whisparr.entrypoints=websecure
-      - traefik.http.routers.whisparr.tls.certresolver=le-dns
-      - traefik.http.routers.whisparr.middlewares=ip-allowlist@docker
-
-      # Watchtower Updates
-      - com.centurylinklabs.watchtower.enable=true
-      
-      # Unraid UI
-      - net.unraid.docker.webui=https://whisparr.stephandkyle.us
-      - net.unraid.docker.icon=https://cdn.jsdelivr.net/gh/selfhst/icons/png/whisparr.png
-
-    healthcheck:
-      test: ["CMD-SHELL", "nc -zw2 127.0.0.1 6969 || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
+# Optional: Whisparr (adult media manager)
+# Uncomment this service (and healthcheck) if you use Whisparr in your lab.
+#  whisparr:
+#    image: ghcr.io/hotio/whisparr:latest
+#    container_name: whisparr
+#    restart: unless-stopped
+#    networks:
+#      - traefik_proxy
+#    environment:
+#      PUID: "${PUID:-99}"
+#      PGID: "${PGID:-100}"
+#      UMASK: "${UMASK:-002}"
+#      TZ: "${TZ:-America/Los_Angeles}"
+#    volumes:
+#      - /mnt/user/appdata/whisparr:/config
+#      - media:/media
+#    labels:
+#      - traefik.enable=true
+#      - traefik.docker.network=traefik_proxy
+#
+#      # Service
+#      - traefik.http.services.whisparr.loadbalancer.server.port=6969
+#      
+#      # Router
+#      - traefik.http.routers.whisparr.rule=Host(`whisparr.stephandkyle.us`)
+#      - traefik.http.routers.whisparr.entrypoints=websecure
+#      - traefik.http.routers.whisparr.tls.certresolver=le-dns
+#      - traefik.http.routers.whisparr.middlewares=ip-allowlist@docker
+#
+#      # Watchtower Updates
+#      - com.centurylinklabs.watchtower.enable=true
+#      
+#      # Unraid UI
+#      - net.unraid.docker.webui=https://whisparr.stephandkyle.us
+#      - net.unraid.docker.icon=https://cdn.jsdelivr.net/gh/selfhst/icons/png/whisparr.png
+#
+#    healthcheck:
+#      test: ["CMD-SHELL", "nc -zw2 127.0.0.1 6969 || exit 1"]
+#      interval: 30s
+#      timeout: 10s
+#      retries: 3
+#      start_period: 30s
 
   recyclarr:
     image: ghcr.io/recyclarr/recyclarr:latest
@@ -378,3 +380,59 @@ services:
 
       # Unraid UI
       - net.unraid.docker.icon=https://cdn.jsdelivr.net/gh/selfhst/icons/png/recyclarr.png
+
+  decluttarr:
+    image: ghcr.io/manimatter/decluttarr:latest
+    container_name: decluttarr
+    restart: unless-stopped
+    networks:
+      - traefik_proxy
+    environment:
+      LOG_LEVEL: "INFO"
+      TEST_RUN: "false"
+      TIMER: 30
+
+      REMOVE_BAD_FILES: "true"
+      REMOVE_FAILED_DOWNLOADS: "true"
+      REMOVE_FAILED_IMPORTS: "false"
+      REMOVE_METADATA_MISSING: "true"
+      REMOVE_MISSING_FILES: "true"
+      REMOVE_ORPHANS: "true"
+      REMOVE_SLOW: "false"
+      REMOVE_STALLED: "true"
+      REMOVE_UNMONITORED: "true"
+      SEARCH_BETTER: "true"
+      SEARCH_MISSING: "true"
+      DETECT_DELETIONS: "false"
+
+      # Instances
+      SONARR: |
+        - base_url: "http://sonarr:8989"
+          api_key: "${SONARR_API_KEY}"
+
+      RADARR: |
+        - base_url: "http://radarr:7878"
+          api_key: "${RADARR_API_KEY}"
+
+      READARR: |
+        - base_url: "http://readarr:8787"
+          api_key: "${READARR_API_KEY}"
+
+      LIDARR: |
+        - base_url: "http://lidarr:8686"
+          api_key: "${LIDARR_API_KEY}"
+
+# Uncomment if using Whisparr.
+#      WHISPARR: |
+#        - base_url: "http://whisparr:6969"
+#          api_key: "${WHISPARR_API_KEY}"
+
+      # Download Clients
+      QBITTORRENT: |
+        - base_url: "http://gluetun:8081"
+          username: "${QBIT_USERNAME}"
+          password: "${QBIT_PASSWORD}"
+        
+    labels:
+      # Watchtower Updates
+      - com.centurylinklabs.watchtower.enable=true
